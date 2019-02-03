@@ -22,7 +22,7 @@ import javafx.scene.image.WritableImage;
 import javafx.scene.image.WritablePixelFormat;
 import javafx.scene.paint.Color;
 import se.llbit.chunky.ui.MapViewMode;
-import se.llbit.chunky.block.Block;
+import se.llbit.chunky.idblock.IdBlock;
 import se.llbit.chunky.world.ChunkPosition;
 import se.llbit.chunky.world.ChunkView;
 import se.llbit.png.PngFileWriter;
@@ -57,7 +57,7 @@ public class MapBuffer {
   private boolean cached = false;
 
   private boolean highlightEnabled = false;
-  private Block highlightBlock = Block.get(Block.DIAMONDORE_ID);
+  private IdBlock highlightBlock = IdBlock.get(IdBlock.DIAMONDORE_ID);
   private Color highlightColor = Color.CRIMSON;
 
   private ChunkView view = ChunkView.EMPTY;
@@ -266,7 +266,7 @@ public class MapBuffer {
     return highlightEnabled;
   }
 
-  public Block highlightBlock() {
+  public IdBlock highlightBlock() {
     return highlightBlock;
   }
 

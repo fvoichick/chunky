@@ -20,7 +20,7 @@ import org.apache.commons.math3.util.FastMath;
 import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.chunky.resources.Texture;
 import se.llbit.chunky.world.Biomes;
-import se.llbit.chunky.block.Block;
+import se.llbit.chunky.idblock.IdBlock;
 import se.llbit.chunky.world.Chunk;
 import se.llbit.math.ColorUtil;
 
@@ -83,7 +83,7 @@ public class BlockLayer extends AbstractLayer {
           int xp0 = x * 16;
 
           byte block = blocks[x * Chunk.Z_MAX + z];
-          if (block == Block.AIR_ID) {
+          if (block == IdBlock.AIR_ID) {
             for (int i = 0; i < 16; ++i) {
               for (int j = 0; j < 16; ++j) {
                 tile.setPixel(xp0 + j, yp0 + i, 0xFFFFFFFF);
@@ -93,12 +93,12 @@ public class BlockLayer extends AbstractLayer {
           }
 
           switch ((int) block) {
-            case Block.GRASS_ID:
-            case Block.TALLGRASS_ID:
-            case Block.LEAVES_ID:
-            case Block.LEAVES2_ID:
-            case Block.VINES_ID: {
-              Texture tex = Block.get(block).getIcon();
+            case IdBlock.GRASS_ID:
+            case IdBlock.TALLGRASS_ID:
+            case IdBlock.LEAVES_ID:
+            case IdBlock.LEAVES2_ID:
+            case IdBlock.VINES_ID: {
+              Texture tex = IdBlock.get(block).getIcon();
               for (int i = 0; i < 16; ++i) {
                 for (int j = 0; j < 16; ++j) {
                   float[] rgb = tex.getColor(j, i);
@@ -113,7 +113,7 @@ public class BlockLayer extends AbstractLayer {
               break;
             }
             default: {
-              int[] tex = Block.get(block).getIcon().getData();
+              int[] tex = IdBlock.get(block).getIcon().getData();
               for (int i = 0; i < 16; ++i) {
                 for (int j = 0; j < 16; ++j) {
                   int rgb = tex[i * 16 + j];
@@ -134,20 +134,20 @@ public class BlockLayer extends AbstractLayer {
   }
 
   private int avgBlockColor(byte block, byte biome) {
-    if (block == Block.AIR_ID) {
+    if (block == IdBlock.AIR_ID) {
       return 0xFFFFFFFF;
     } else {
       switch ((int) block) {
-        case Block.GRASS_ID:
-        case Block.TALLGRASS_ID:
-        case Block.LEAVES_ID:
-        case Block.LEAVES2_ID:
-        case Block.VINES_ID: {
-          float[] rgb = Block.get(block).getIcon().getAvgColorLinear();
+        case IdBlock.GRASS_ID:
+        case IdBlock.TALLGRASS_ID:
+        case IdBlock.LEAVES_ID:
+        case IdBlock.LEAVES2_ID:
+        case IdBlock.VINES_ID: {
+          float[] rgb = IdBlock.get(block).getIcon().getAvgColorLinear();
           return getBiomeColor(rgb, block, biome);
         }
         default:
-          return Block.get(block).getIcon().getAvgColor();
+          return IdBlock.get(block).getIcon().getAvgColor();
       }
     }
   }
@@ -156,16 +156,16 @@ public class BlockLayer extends AbstractLayer {
     float[] biomeColor;
     float alpha = rgb[3];
     switch ((int) block) {
-      case Block.GRASS_ID:
-      case Block.TALLGRASS_ID:
+      case IdBlock.GRASS_ID:
+      case IdBlock.TALLGRASS_ID:
         biomeColor = Biomes.getGrassColorLinear(biome);
         return ColorUtil.getRGB(
             (1 - alpha) + alpha * FastMath.pow(rgb[0] * biomeColor[0], Scene.DEFAULT_GAMMA_INV),
             (1 - alpha) + alpha * FastMath.pow(rgb[1] * biomeColor[1], Scene.DEFAULT_GAMMA_INV),
             (1 - alpha) + alpha * FastMath.pow(rgb[2] * biomeColor[2], Scene.DEFAULT_GAMMA_INV));
-      case Block.LEAVES_ID:
-      case Block.LEAVES2_ID:
-      case Block.VINES_ID:
+      case IdBlock.LEAVES_ID:
+      case IdBlock.LEAVES2_ID:
+      case IdBlock.VINES_ID:
         biomeColor = Biomes.getFoliageColorLinear(biome);
         return ColorUtil.getRGB(
             (1 - alpha) + alpha * FastMath.pow(rgb[0] * biomeColor[0], Scene.DEFAULT_GAMMA_INV),
@@ -181,7 +181,7 @@ public class BlockLayer extends AbstractLayer {
   /**
    * Render block highlight.
    */
-  @Override public synchronized void renderHighlight(MapTile tile, Block hlBlock, int hlColor) {
+  @Override public synchronized void renderHighlight(MapTile tile, IdBlock hlBlock, int hlColor) {
 
     if (blocks == null) {
       return;

@@ -49,7 +49,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.converter.NumberStringConverter;
 import se.llbit.chunky.PersistentSettings;
-import se.llbit.chunky.block.Block;
+import se.llbit.chunky.idblock.IdBlock;
 import se.llbit.chunky.launcher.LauncherSettings;
 import se.llbit.chunky.main.Chunky;
 import se.llbit.chunky.map.WorldMapLoader;
@@ -138,7 +138,7 @@ public class ChunkyFxController
 
   @FXML private CheckBox highlightBtn;
 
-  @FXML private ChoiceBox<Block> highlightCb;
+  @FXML private ChoiceBox<IdBlock> highlightCb;
 
   @FXML private LuxColorPicker highlightColor;
 
@@ -368,14 +368,14 @@ public class ChunkyFxController
     highlightBtn.selectedProperty().bindBidirectional(mapLoader.highlightEnabledProperty());
 
     highlightCb.getItems().addAll(
-        Block.get(Block.DIRT_ID), Block.get(Block.GRASS_ID), Block.get(Block.STONE_ID),
-        Block.get(Block.COBBLESTONE_ID), Block.get(Block.MOSSSTONE_ID),
-        Block.get(Block.IRONORE_ID), Block.get(Block.COALORE_ID),
-        Block.get(Block.REDSTONEORE_ID), Block.get(Block.DIAMONDORE_ID),
-        Block.get(Block.GOLDORE_ID), Block.get(Block.MONSTERSPAWNER_ID),
-        Block.get(Block.BRICKS_ID), Block.get(Block.CLAY_ID), Block.get(Block.LAPIS_ORE_ID),
-        Block.get(Block.EMERALDORE_ID), Block.get(Block.NETHERQUARTZORE_ID));
-    highlightCb.getSelectionModel().select(Block.get(Block.DIAMONDORE_ID));
+        IdBlock.get(IdBlock.DIRT_ID), IdBlock.get(IdBlock.GRASS_ID), IdBlock.get(IdBlock.STONE_ID),
+        IdBlock.get(IdBlock.COBBLESTONE_ID), IdBlock.get(IdBlock.MOSSSTONE_ID),
+        IdBlock.get(IdBlock.IRONORE_ID), IdBlock.get(IdBlock.COALORE_ID),
+        IdBlock.get(IdBlock.REDSTONEORE_ID), IdBlock.get(IdBlock.DIAMONDORE_ID),
+        IdBlock.get(IdBlock.GOLDORE_ID), IdBlock.get(IdBlock.MONSTERSPAWNER_ID),
+        IdBlock.get(IdBlock.BRICKS_ID), IdBlock.get(IdBlock.CLAY_ID), IdBlock.get(IdBlock.LAPIS_ORE_ID),
+        IdBlock.get(IdBlock.EMERALDORE_ID), IdBlock.get(IdBlock.NETHERQUARTZORE_ID));
+    highlightCb.getSelectionModel().select(IdBlock.get(IdBlock.DIAMONDORE_ID));
     highlightCb.getSelectionModel().selectedItemProperty().addListener((item, prev, next) -> {
       mapLoader.highlightEnabledProperty().set(true);
       mapLoader.highlightBlock(next);

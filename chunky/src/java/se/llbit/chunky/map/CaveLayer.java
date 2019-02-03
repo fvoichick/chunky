@@ -16,7 +16,7 @@
  */
 package se.llbit.chunky.map;
 
-import se.llbit.chunky.block.Block;
+import se.llbit.chunky.idblock.IdBlock;
 import se.llbit.chunky.world.Chunk;
 import se.llbit.math.ColorUtil;
 import se.llbit.math.QuickMath;
@@ -44,7 +44,7 @@ public class CaveLayer extends BitmapLayer {
         // Find ground level.
         for (; y > 1; --y) {
           int block = blocksArray[Chunk.chunkIndex(x, y, z)] & 0xFF;
-          if (Block.get(block).isGroundBlock()) {
+          if (IdBlock.get(block).isGroundBlock()) {
             break;
           }
         }
@@ -52,10 +52,10 @@ public class CaveLayer extends BitmapLayer {
         // find caves
         int luftspalt = 0;
         for (; y > 1; --y) {
-          Block block = Block.get(blocksArray[Chunk.chunkIndex(x, y, z)]);
+          IdBlock block = IdBlock.get(blocksArray[Chunk.chunkIndex(x, y, z)]);
           if (block.isCave()) {
             y -= 1;
-            Block block1 = Block.get(blocksArray[Chunk.chunkIndex(x, y, z)]);
+            IdBlock block1 = IdBlock.get(blocksArray[Chunk.chunkIndex(x, y, z)]);
             if (block1.isCave()) {
               luftspalt++;
               y -= 1;

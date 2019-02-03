@@ -108,4 +108,8 @@ public abstract class Material {
   public boolean isWater() {
     return false;
   }
+
+  public boolean isSameMaterial(Material other) {
+    return other == this;
+  }
 }

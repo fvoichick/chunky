@@ -22,12 +22,12 @@ import javafx.beans.property.SimpleBooleanProperty;
 import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.paint.Color;
 import se.llbit.chunky.PersistentSettings;
+import se.llbit.chunky.idblock.IdBlock;
 import se.llbit.chunky.main.ZipExportJob;
 import se.llbit.chunky.renderer.ChunkViewListener;
 import se.llbit.chunky.ui.ChunkyFxController;
 import se.llbit.chunky.ui.MapViewMode;
 import se.llbit.chunky.ui.ProgressTracker;
-import se.llbit.chunky.block.Block;
 import se.llbit.chunky.world.Chunk;
 import se.llbit.chunky.world.ChunkPosition;
 import se.llbit.chunky.world.ChunkSelectionTracker;
@@ -66,7 +66,7 @@ public class WorldMapLoader implements ChunkTopographyListener {
   protected ChunkSelectionTracker chunkSelection = new ChunkSelectionTracker();
 
   private BooleanProperty highlightEnabled = new SimpleBooleanProperty(false);
-  private Block highlightBlock = Block.get(Block.DIAMONDORE_ID);
+  private IdBlock highlightBlock = IdBlock.get(IdBlock.DIAMONDORE_ID);
   private Color highlightColor = Color.CRIMSON;
 
   private volatile ObjectProperty<ChunkView> map = new SimpleObjectProperty<>(ChunkView.EMPTY);
@@ -480,7 +480,7 @@ public class WorldMapLoader implements ChunkTopographyListener {
   /**
    * @return The currently highlighted block type
    */
-  public Block highlightBlock() {
+  public IdBlock highlightBlock() {
     return highlightBlock;
   }
 
@@ -495,7 +495,7 @@ public class WorldMapLoader implements ChunkTopographyListener {
   /**
    * Set a new block type to highlight.
    */
-  public void highlightBlock(Block hlBlock) {
+  public void highlightBlock(IdBlock hlBlock) {
     this.highlightBlock = hlBlock;
     if (highlightEnabled.get()) {
       // TODO: make separate highlight update event.
