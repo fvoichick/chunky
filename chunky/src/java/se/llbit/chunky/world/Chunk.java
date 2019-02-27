@@ -231,10 +231,11 @@ public class Chunk {
       byte[] biomeData = new byte[X_MAX * Z_MAX];
       extractBiomeData(data.get(LEVEL_BIOMES), biomeData);
       byte[] chunkData = new byte[CHUNK_BYTES];
-      byte[] blockData = new byte[CHUNK_BYTES];
-      extractChunkData(data, chunkData, blockData);
+      int[] blockData = new int[CHUNK_BYTES];
+      BlockPalette palette = new BlockPalette();
+      loadBlockData(data, blockData, palette);
       updateHeightmap(heightmap, position, chunkData, heightmapData);
-      surface = new SurfaceLayer(world.currentDimension(), chunkData, biomeData, blockData);
+      surface = new SurfaceLayer(world.currentDimension(), blockData, biomeData, palette);
       queueTopography();
     } else {
       surface = CorruptLayer.INSTANCE;
