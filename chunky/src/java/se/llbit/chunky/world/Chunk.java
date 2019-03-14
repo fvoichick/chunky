@@ -24,7 +24,6 @@ import se.llbit.chunky.map.CorruptLayer;
 import se.llbit.chunky.map.MapTile;
 import se.llbit.chunky.map.SurfaceLayer;
 import se.llbit.chunky.map.UnknownLayer;
-import se.llbit.chunky.map.WorldMapLoader;
 import se.llbit.math.QuickMath;
 import se.llbit.nbt.CompoundTag;
 import se.llbit.nbt.ErrorTag;

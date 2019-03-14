@@ -29,12 +29,14 @@ import javafx.scene.control.Tab;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import se.llbit.chunky.block.Block;
 import se.llbit.chunky.idblock.IdBlock;
 import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.chunky.ui.DoubleAdjuster;
 import se.llbit.chunky.ui.RenderControlsFxController;
 import se.llbit.chunky.world.ExtraMaterials;
 import se.llbit.chunky.world.Material;
+import se.llbit.chunky.world.MaterialCollection;
 
 import java.net.URL;
 import java.util.Collection;
@@ -56,9 +58,9 @@ public class MaterialsTab extends Tab implements RenderControlsTab, Initializabl
     specular.setRange(0, 1);
     ior.setName("IoR");
     ObservableList<String> blockIds = FXCollections.observableArrayList();
-    blockIds.addAll(IdBlock.collections.keySet());
+    blockIds.addAll(MaterialCollection.collections.keySet());
     blockIds.addAll(ExtraMaterials.idMap.keySet());
-    blockIds.addAll(IdBlock.idMap.keySet());
+    blockIds.addAll(MaterialCollection.idMap.keySet());
     FilteredList<String> filteredList = new FilteredList<>(blockIds);
     listView = new ListView<>(filteredList);
     listView.getSelectionModel().selectedItemProperty().addListener(
@@ -96,12 +98,12 @@ public class MaterialsTab extends Tab implements RenderControlsTab, Initializabl
 
   private void updateSelectedMaterial(String materialName) {
     boolean materialExists = false;
-    if (IdBlock.collections.containsKey(materialName)) {
+    if (MaterialCollection.collections.containsKey(materialName)) {
       double emAcc = 0;
       double specAcc = 0;
       double iorAcc = 0;
-      Collection<IdBlock> blocks = IdBlock.collections.get(materialName);
-      for (IdBlock block : blocks) {
+      Collection<Block> blocks = MaterialCollection.collections.get(materialName);
+      for (Block block : blocks) {
         emAcc += block.emittance;
         specAcc += block.specular;
         iorAcc += block.ior;
@@ -118,8 +120,8 @@ public class MaterialsTab extends Tab implements RenderControlsTab, Initializabl
         ior.set(material.ior);
         materialExists = true;
       }
-    } else if (IdBlock.idMap.containsKey(materialName)) {
-      Material material = IdBlock.idMap.get(materialName);
+    } else if (MaterialCollection.idMap.containsKey(materialName)) {
+      Material material = MaterialCollection.idMap.get(materialName);
       if (material != null) {
         emittance.set(material.emittance);
         specular.set(material.specular);
