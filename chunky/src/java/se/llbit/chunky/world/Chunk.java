@@ -25,7 +25,6 @@ import se.llbit.chunky.map.MapTile;
 import se.llbit.chunky.map.SurfaceLayer;
 import se.llbit.chunky.map.UnknownLayer;
 import se.llbit.chunky.map.WorldMapLoader;
-import se.llbit.chunky.ui.MapViewMode;
 import se.llbit.math.QuickMath;
 import se.llbit.nbt.CompoundTag;
 import se.llbit.nbt.ErrorTag;
@@ -145,12 +144,16 @@ public class Chunk {
    * Parse the chunk from the region file and render the current
    * layer, surface and cave maps.
    */
-  public synchronized void loadChunk(WorldMapLoader loader) {
+  public synchronized void loadChunk() {
     if (!shouldReloadChunk()) {
       return;
     }
 
-    Map<String, Tag> data = getChunkData(MapViewMode.getRequest());
+    Set<String> request = new HashSet<>();
+    request.add(Chunk.LEVEL_SECTIONS);
+    request.add(Chunk.LEVEL_BIOMES);
+    request.add(Chunk.LEVEL_HEIGHTMAP);
+    Map<String, Tag> data = getChunkData(request);
 
     surfaceTimestamp = dataTimestamp;
     loadSurface(data);

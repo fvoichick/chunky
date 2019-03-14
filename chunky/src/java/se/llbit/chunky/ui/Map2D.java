@@ -97,7 +97,7 @@ public class Map2D implements ChunkUpdateListener, ChunkViewListener {
    */
   public synchronized void viewUpdated(ChunkView newView) {
     setView(newView);
-    mapBuffer.updateView(view, mapLoader);
+    mapBuffer.updateView(view);
   }
 
   protected void setView(ChunkView newView) {
