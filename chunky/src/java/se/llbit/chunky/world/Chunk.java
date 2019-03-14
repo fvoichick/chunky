@@ -72,13 +72,7 @@ public class Chunk {
   private static final int SECTION_HALF_NIBBLES = SECTION_BYTES / 2;
   private static final int CHUNK_BYTES = X_MAX * Y_MAX * Z_MAX;
 
-  public static final int BLOCK_LAYER = 1 << 0;
-  public static final int SURFACE_LAYER = 1 << 1;
-  public static final int CAVE_LAYER = 1 << 2;
-  public static final int BIOME_LAYER = 1 << 3;
-
   private final ChunkPosition position;
-  private int loadedLayer = -1;
   protected volatile AbstractLayer layer = UnknownLayer.INSTANCE;
   protected volatile AbstractLayer surface = UnknownLayer.INSTANCE;
   protected volatile AbstractLayer caves = UnknownLayer.INSTANCE;
@@ -87,9 +81,7 @@ public class Chunk {
   private final World world;
 
   private int dataTimestamp = 0;
-  private int layerTimestamp = 0;
   private int surfaceTimestamp = 0;
-  private int cavesTimestamp = 0;
   private int biomesTimestamp = 0;
 
   public Chunk(ChunkPosition pos, World world) {
@@ -97,28 +89,8 @@ public class Chunk {
     this.position = pos;
   }
 
-  public void renderLayer(MapTile tile) {
-    layer.render(tile);
-  }
-
-  public int layerColor() {
-    return layer.getAvgColor();
-  }
-
   public void renderSurface(MapTile tile) {
     surface.render(tile);
-  }
-
-  public int surfaceColor() {
-    return surface.getAvgColor();
-  }
-
-  public void renderCaves(MapTile tile) {
-    caves.render(tile);
-  }
-
-  public int caveColor() {
-    return caves.getAvgColor();
   }
 
   public void renderBiomes(MapTile tile) {
@@ -251,30 +223,6 @@ public class Chunk {
         fallback[i] = Y_MAX - 1;
       }
       return fallback;
-    }
-  }
-
-  // OLD
-  private void extractChunkData(@NotNull Map<String, Tag> data, @NotNull byte[] blocks,
-      @NotNull byte[] blockData) {
-    Tag sections = data.get(LEVEL_SECTIONS);
-    if (sections.isList()) {
-      for (SpecificTag section : sections.asList()) {
-        Tag yTag = section.get("Y");
-        int yOffset = yTag.byteValue() & 0xFF;
-        if (!section.get("Palette").isList()) {
-          Tag blocksTag = section.get("Blocks");
-          if (blocksTag.isByteArray(SECTION_BYTES)) {
-            System.arraycopy(blocksTag.byteArray(), 0, blocks, SECTION_BYTES * yOffset,
-                SECTION_BYTES);
-          }
-          Tag dataTag = section.get("Data");
-          if (dataTag.isByteArray(SECTION_HALF_NIBBLES)) {
-            System.arraycopy(dataTag.byteArray(), 0, blockData, SECTION_HALF_NIBBLES * yOffset,
-                SECTION_HALF_NIBBLES);
-          }
-        }
-      }
     }
   }
 
