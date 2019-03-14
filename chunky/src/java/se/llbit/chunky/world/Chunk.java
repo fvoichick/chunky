@@ -16,26 +16,23 @@
  */
 package se.llbit.chunky.world;
 
-import se.llbit.chunky.idblock.IdBlock;
 import se.llbit.chunky.chunk.BlockPalette;
+import se.llbit.chunky.idblock.IdBlock;
 import se.llbit.chunky.map.AbstractLayer;
 import se.llbit.chunky.map.BiomeLayer;
-import se.llbit.chunky.map.BlockLayer;
-import se.llbit.chunky.map.CaveLayer;
 import se.llbit.chunky.map.CorruptLayer;
 import se.llbit.chunky.map.MapTile;
 import se.llbit.chunky.map.SurfaceLayer;
 import se.llbit.chunky.map.UnknownLayer;
 import se.llbit.chunky.map.WorldMapLoader;
 import se.llbit.chunky.ui.MapViewMode;
-import se.llbit.log.Log;
 import se.llbit.math.QuickMath;
-import se.llbit.nbt.Tag;
 import se.llbit.nbt.CompoundTag;
 import se.llbit.nbt.ErrorTag;
 import se.llbit.nbt.ListTag;
 import se.llbit.nbt.NamedTag;
 import se.llbit.nbt.SpecificTag;
+import se.llbit.nbt.Tag;
 import se.llbit.util.BitBuffer;
 import se.llbit.util.NotNull;
 
@@ -177,36 +174,16 @@ public class Chunk {
    * layer, surface and cave maps.
    */
   public synchronized void loadChunk(WorldMapLoader loader) {
-
-    int requestedLayer = world.currentLayer();
-    MapViewMode renderer = loader.getChunkRenderer();
-    ChunkView view = loader.getMapView();
-
-    if (!shouldReloadChunk(renderer, view, requestedLayer)) {
+    if (!shouldReloadChunk()) {
       return;
     }
 
-    loadedLayer = requestedLayer;
+    Map<String, Tag> data = getChunkData(MapViewMode.getRequest());
 
-    Map<String, Tag> data = getChunkData(renderer.getRequest(view));
-
-    int layers = renderer.getLayers(view);
-    if ((layers & BLOCK_LAYER) != 0) {
-      layerTimestamp = dataTimestamp;
-      loadLayer(data, requestedLayer);
-    }
-    if ((layers & SURFACE_LAYER) != 0) {
-      surfaceTimestamp = dataTimestamp;
-      loadSurface(data);
-    }
-    if ((layers & BIOME_LAYER) != 0) {
-      biomesTimestamp = dataTimestamp;
-      loadBiomes(data);
-    }
-    if ((layers & CAVE_LAYER) != 0) {
-      cavesTimestamp = dataTimestamp;
-      loadCaves(data);
-    }
+    surfaceTimestamp = dataTimestamp;
+    loadSurface(data);
+    biomesTimestamp = dataTimestamp;
+    loadBiomes(data);
 
     world.chunkUpdated(position);
   }
@@ -242,41 +219,6 @@ public class Chunk {
       byte[] biomeData = new byte[X_MAX * Z_MAX];
       extractBiomeData(data.get(LEVEL_BIOMES), biomeData);
       biomes = new BiomeLayer(biomeData);
-    }
-  }
-
-  private void loadLayer(Map<String, Tag> data, int requestedLayer) {
-    if (data == null) {
-      layer = CorruptLayer.INSTANCE;
-      return;
-    }
-
-    Tag sections = data.get(LEVEL_SECTIONS);
-    if (sections.isList()) {
-      byte[] biomeData = new byte[X_MAX * Z_MAX];
-      extractBiomeData(data.get(LEVEL_BIOMES), biomeData);
-      byte[] chunkData = new byte[CHUNK_BYTES];
-      extractChunkData(data, chunkData, new byte[CHUNK_BYTES]);
-      layer = new BlockLayer(chunkData, biomeData, requestedLayer);
-    } else {
-      layer = CorruptLayer.INSTANCE;
-    }
-  }
-
-  private void loadCaves(Map<String, Tag> data) {
-    if (data == null) {
-      caves = CorruptLayer.INSTANCE;
-      return;
-    }
-
-    Tag sections = data.get(LEVEL_SECTIONS);
-    if (sections.isList()) {
-      int[] heightmapData = extractHeightmapData(data);
-      byte[] chunkData = new byte[CHUNK_BYTES];
-      extractChunkData(data, chunkData, new byte[CHUNK_BYTES]);
-      caves = new CaveLayer(chunkData, heightmapData);
-    } else {
-      caves = CorruptLayer.INSTANCE;
     }
   }
 
@@ -410,24 +352,10 @@ public class Chunk {
     }
   }
 
-  private boolean shouldReloadChunk(MapViewMode renderer, ChunkView view, int requestedLayer) {
+  private boolean shouldReloadChunk() {
     int timestamp = Integer.MAX_VALUE;
-    int layers = renderer.getLayers(view);
-    if ((layers & BLOCK_LAYER) != 0) {
-      if (requestedLayer != loadedLayer) {
-        return true;
-      }
-      timestamp = layerTimestamp;
-    }
-    if ((layers & SURFACE_LAYER) != 0) {
-      timestamp = Math.min(timestamp, surfaceTimestamp);
-    }
-    if ((layers & BIOME_LAYER) != 0) {
-      timestamp = Math.min(timestamp, biomesTimestamp);
-    }
-    if ((layers & CAVE_LAYER) != 0) {
-      timestamp = Math.min(timestamp, cavesTimestamp);
-    }
+    timestamp = Math.min(timestamp, surfaceTimestamp);
+    timestamp = Math.min(timestamp, biomesTimestamp);
     if (timestamp == 0) {
       return true;
     }
