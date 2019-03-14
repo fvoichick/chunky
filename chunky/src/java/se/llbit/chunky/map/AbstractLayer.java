@@ -41,12 +41,6 @@ abstract public class AbstractLayer {
   public void renderTopography(ChunkPosition position, Heightmap heightmap) {
   }
 
-  /**
-   * Render this layer
-   */
-  public void renderHighlight(MapTile tile, IdBlock hlBlock, int hlColor) {
-  }
-
   public int getAvgColor() {
     return 0xFF000000;
   }

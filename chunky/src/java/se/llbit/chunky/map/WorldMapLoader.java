@@ -65,10 +65,6 @@ public class WorldMapLoader implements ChunkTopographyListener {
   private int currentDimension = PersistentSettings.getDimension();
   protected ChunkSelectionTracker chunkSelection = new ChunkSelectionTracker();
 
-  private BooleanProperty highlightEnabled = new SimpleBooleanProperty(false);
-  private IdBlock highlightBlock = IdBlock.get(IdBlock.DIAMONDORE_ID);
-  private Color highlightColor = Color.CRIMSON;
-
   private volatile ObjectProperty<ChunkView> map = new SimpleObjectProperty<>(ChunkView.EMPTY);
   private volatile ChunkView minimap = ChunkView.EMPTY;
 
@@ -107,11 +103,6 @@ public class WorldMapLoader implements ChunkTopographyListener {
       if (track) {
         controller.panToCamera();
       }
-    });
-
-    highlightEnabled.addListener(e -> {
-      setRenderer(MapViewMode.LAYER);
-      notifyViewUpdated();
     });
 
     // Start worker threads.
@@ -467,50 +458,6 @@ public class WorldMapLoader implements ChunkTopographyListener {
       map.set(new ChunkView(mapView.x, mapView.z,
           mapView.width, mapView.height, blockScale,
           mapView.renderer, mapView.layer));
-    }
-  }
-
-  /**
-   * @return The current highlight color
-   */
-  public Color highlightColor() {
-    return highlightColor;
-  }
-
-  /**
-   * @return The currently highlighted block type
-   */
-  public IdBlock highlightBlock() {
-    return highlightBlock;
-  }
-
-  public BooleanProperty highlightEnabledProperty() {
-    return highlightEnabled;
-  }
-
-  public boolean highlightEnabled() {
-    return highlightEnabled.get();
-  }
-
-  /**
-   * Set a new block type to highlight.
-   */
-  public void highlightBlock(IdBlock hlBlock) {
-    this.highlightBlock = hlBlock;
-    if (highlightEnabled.get()) {
-      // TODO: make separate highlight update event.
-      notifyViewUpdated();
-    }
-  }
-
-  /**
-   * Set a new highlight color.
-   */
-  public void highlightColor(Color newColor) {
-    highlightColor = newColor;
-    if (highlightEnabled.get()) {
-      // TODO: make separate highlight update event.
-      notifyViewUpdated();
     }
   }
 

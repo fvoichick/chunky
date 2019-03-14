@@ -136,12 +136,6 @@ public class ChunkyFxController
 
   @FXML private Tab aboutTab;
 
-  @FXML private CheckBox highlightBtn;
-
-  @FXML private ChoiceBox<IdBlock> highlightCb;
-
-  @FXML private LuxColorPicker highlightColor;
-
   @FXML private Button editResourcePacks;
 
   @FXML private CheckBox singleColorBtn;
@@ -363,28 +357,6 @@ public class ChunkyFxController
     singleColorBtn.selectedProperty().addListener((observable, oldValue, newValue) -> {
       PersistentSettings.setSingleColorTextures(newValue);
     });
-
-    highlightBtn.setTooltip(new Tooltip("Highlight the selected block type in the current layer."));
-    highlightBtn.selectedProperty().bindBidirectional(mapLoader.highlightEnabledProperty());
-
-    highlightCb.getItems().addAll(
-        IdBlock.get(IdBlock.DIRT_ID), IdBlock.get(IdBlock.GRASS_ID), IdBlock.get(IdBlock.STONE_ID),
-        IdBlock.get(IdBlock.COBBLESTONE_ID), IdBlock.get(IdBlock.MOSSSTONE_ID),
-        IdBlock.get(IdBlock.IRONORE_ID), IdBlock.get(IdBlock.COALORE_ID),
-        IdBlock.get(IdBlock.REDSTONEORE_ID), IdBlock.get(IdBlock.DIAMONDORE_ID),
-        IdBlock.get(IdBlock.GOLDORE_ID), IdBlock.get(IdBlock.MONSTERSPAWNER_ID),
-        IdBlock.get(IdBlock.BRICKS_ID), IdBlock.get(IdBlock.CLAY_ID), IdBlock.get(IdBlock.LAPIS_ORE_ID),
-        IdBlock.get(IdBlock.EMERALDORE_ID), IdBlock.get(IdBlock.NETHERQUARTZORE_ID));
-    highlightCb.getSelectionModel().select(IdBlock.get(IdBlock.DIAMONDORE_ID));
-    highlightCb.getSelectionModel().selectedItemProperty().addListener((item, prev, next) -> {
-      mapLoader.highlightEnabledProperty().set(true);
-      mapLoader.highlightBlock(next);
-    });
-
-    highlightColor.setColor(mapLoader.highlightColor());
-    highlightColor.setTooltip(new Tooltip("Choose highlight color"));
-    highlightColor.colorProperty().addListener(
-        (observable, oldValue, newValue) -> mapLoader.highlightColor(newValue));
 
     trackPlayerBtn.selectedProperty().bindBidirectional(mapLoader.trackPlayerProperty());
     trackCameraBtn.selectedProperty().bindBidirectional(mapLoader.trackCameraProperty());
