@@ -30,13 +30,12 @@ import javafx.scene.control.TextField;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import se.llbit.chunky.block.Block;
-import se.llbit.chunky.idblock.IdBlock;
 import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.chunky.ui.DoubleAdjuster;
 import se.llbit.chunky.ui.RenderControlsFxController;
 import se.llbit.chunky.world.ExtraMaterials;
 import se.llbit.chunky.world.Material;
-import se.llbit.chunky.world.MaterialCollection;
+import se.llbit.chunky.world.MaterialStore;
 
 import java.net.URL;
 import java.util.Collection;
@@ -58,9 +57,9 @@ public class MaterialsTab extends Tab implements RenderControlsTab, Initializabl
     specular.setRange(0, 1);
     ior.setName("IoR");
     ObservableList<String> blockIds = FXCollections.observableArrayList();
-    blockIds.addAll(MaterialCollection.collections.keySet());
+    blockIds.addAll(MaterialStore.collections.keySet());
     blockIds.addAll(ExtraMaterials.idMap.keySet());
-    blockIds.addAll(MaterialCollection.idMap.keySet());
+    blockIds.addAll(MaterialStore.idMap.keySet());
     FilteredList<String> filteredList = new FilteredList<>(blockIds);
     listView = new ListView<>(filteredList);
     listView.getSelectionModel().selectedItemProperty().addListener(
@@ -98,11 +97,11 @@ public class MaterialsTab extends Tab implements RenderControlsTab, Initializabl
 
   private void updateSelectedMaterial(String materialName) {
     boolean materialExists = false;
-    if (MaterialCollection.collections.containsKey(materialName)) {
+    if (MaterialStore.collections.containsKey(materialName)) {
       double emAcc = 0;
       double specAcc = 0;
       double iorAcc = 0;
-      Collection<Block> blocks = MaterialCollection.collections.get(materialName);
+      Collection<Block> blocks = MaterialStore.collections.get(materialName);
       for (Block block : blocks) {
         emAcc += block.emittance;
         specAcc += block.specular;
@@ -120,8 +119,8 @@ public class MaterialsTab extends Tab implements RenderControlsTab, Initializabl
         ior.set(material.ior);
         materialExists = true;
       }
-    } else if (MaterialCollection.idMap.containsKey(materialName)) {
-      Material material = MaterialCollection.idMap.get(materialName);
+    } else if (MaterialStore.idMap.containsKey(materialName)) {
+      Material material = MaterialStore.idMap.get(materialName);
       if (material != null) {
         emittance.set(material.emittance);
         specular.set(material.specular);
