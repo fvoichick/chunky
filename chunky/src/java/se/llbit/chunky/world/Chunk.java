@@ -23,6 +23,7 @@ import se.llbit.chunky.map.AbstractLayer;
 import se.llbit.chunky.map.BiomeLayer;
 import se.llbit.chunky.map.CorruptLayer;
 import se.llbit.chunky.map.MapTile;
+import se.llbit.chunky.map.OldLayer;
 import se.llbit.chunky.map.SurfaceLayer;
 import se.llbit.chunky.map.UnknownLayer;
 import se.llbit.math.QuickMath;
@@ -176,11 +177,16 @@ public class Chunk {
       byte[] biomeData = new byte[X_MAX * Z_MAX];
       extractBiomeData(data.get(LEVEL_BIOMES), biomeData);
       int[] blockData = new int[CHUNK_BYTES];
-      BlockPalette palette = new BlockPalette();
-      loadBlockData(data, blockData, palette);
-      updateHeightmap(heightmap, position, blockData, heightmapData, palette);
-      surface = new SurfaceLayer(world.currentDimension(), blockData, biomeData, palette);
-      queueTopography();
+      String cv = chunkVersion(data);
+      if (cv.equals("1.13")) {
+        BlockPalette palette = new BlockPalette();
+        loadBlockData(data, blockData, palette);
+        updateHeightmap(heightmap, position, blockData, heightmapData, palette);
+        surface = new SurfaceLayer(world.currentDimension(), blockData, biomeData, palette);
+        queueTopography();
+      } else if (cv.equals("1.12")) {
+        surface = OldLayer.INSTANCE;
+      }
     } else {
       surface = CorruptLayer.INSTANCE;
     }
@@ -226,6 +232,24 @@ public class Chunk {
       }
       return fallback;
     }
+  }
+
+  /** Detect Minecraft version that generated the chunk. */
+  private String chunkVersion(@NotNull Map<String, Tag> data) {
+    Tag sections = data.get(LEVEL_SECTIONS);
+    String version = "1.13";
+    if (sections.isList()) {
+      for (SpecificTag section : sections.asList()) {
+        if (!section.get("Palette").isList()) {
+          if (!version.equals("?") && section.get("Blocks").isByteArray(SECTION_BYTES)) {
+            version = "1.12";
+          } else {
+            version = "?";
+          }
+        }
+      }
+    }
+    return version;
   }
 
   private void loadBlockData(@NotNull Map<String, Tag> data, @NotNull int[] blocks,
