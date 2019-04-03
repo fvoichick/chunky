@@ -118,6 +118,7 @@ public class RenderWorker extends Thread {
           double sr = 0;
           double sg = 0;
           double sb = 0;
+          double sr2 = 0, sg2 = 0, sb2 = 0;
 
           for (int i = 0; i < RenderConstants.SPP_PER_PASS; ++i) {
             double oy = random.nextDouble();
@@ -131,11 +132,17 @@ public class RenderWorker extends Thread {
             sr += ray.color.x;
             sg += ray.color.y;
             sb += ray.color.z;
+            sr2 += ray.color.x * ray.color.x;
+            sg2 += ray.color.y * ray.color.y;
+            sb2 += ray.color.z * ray.color.z;
           }
           double sinv = 1.0 / (scene.spp + RenderConstants.SPP_PER_PASS);
           samples[offset + 0] = (samples[offset + 0] * scene.spp + sr) * sinv;
           samples[offset + 1] = (samples[offset + 1] * scene.spp + sg) * sinv;
           samples[offset + 2] = (samples[offset + 2] * scene.spp + sb) * sinv;
+          scene.squaredSamples[offset] = (samples[offset] * scene.spp + sr2) * sinv;
+          scene.squaredSamples[offset + 1] = (samples[offset] * scene.spp + sg2) * sinv;
+          scene.squaredSamples[offset + 2] = (samples[offset] * scene.spp + sb2) * sinv;
 
           if (scene.shouldFinalizeBuffer()) {
             scene.finalizePixel(x, y);

@@ -312,6 +312,7 @@ public class Scene implements JsonSerializable, Refreshable {
    * coupled to the scene settings.
    */
   protected double[] samples;
+  public double[] squaredSamples;
 
   private byte[] alphaChannel;
 
@@ -369,6 +370,7 @@ public class Scene implements JsonSerializable, Refreshable {
     backBuffer = new BitmapImage(width, height);
     alphaChannel = new byte[width * height];
     samples = new double[width * height * 3];
+    squaredSamples = new double[width * height * 3];
   }
 
   /**
@@ -443,6 +445,7 @@ public class Scene implements JsonSerializable, Refreshable {
       frontBuffer = other.frontBuffer;
       alphaChannel = other.alphaChannel;
       samples = other.samples;
+      squaredSamples = other.squaredSamples;
     }
   }
 
@@ -1941,9 +1944,12 @@ public class Scene implements JsonSerializable, Refreshable {
    * @param result the resulting color values are written to this array
    */
   public void postProcessPixel(int x, int y, double[] result) {
-    double r = samples[(y * width + x) * 3 + 0];
-    double g = samples[(y * width + x) * 3 + 1];
-    double b = samples[(y * width + x) * 3 + 2];
+//    double r = samples[(y * width + x) * 3 + 0];
+//    double g = samples[(y * width + x) * 3 + 1];
+//    double b = samples[(y * width + x) * 3 + 2];
+    double r = squaredSamples[(y * width + x)] + samples[(y * width + x) * 3] * samples[(y * width + x) * 3];
+    double g = squaredSamples[(y * width + x) + 1] + samples[(y * width + x) * 3 + 1] * samples[(y * width + x) * 3 + 1];
+    double b = squaredSamples[(y * width + x) + 2] + samples[(y * width + x) * 3 + 2] * samples[(y * width + x) * 3 + 2];
 
     r *= exposure;
     g *= exposure;
