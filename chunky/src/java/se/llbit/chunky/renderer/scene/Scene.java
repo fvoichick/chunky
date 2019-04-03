@@ -1947,9 +1947,9 @@ public class Scene implements JsonSerializable, Refreshable {
 //    double r = samples[(y * width + x) * 3 + 0];
 //    double g = samples[(y * width + x) * 3 + 1];
 //    double b = samples[(y * width + x) * 3 + 2];
-    double r = squaredSamples[(y * width + x)] + samples[(y * width + x) * 3] * samples[(y * width + x) * 3];
-    double g = squaredSamples[(y * width + x) + 1] + samples[(y * width + x) * 3 + 1] * samples[(y * width + x) * 3 + 1];
-    double b = squaredSamples[(y * width + x) + 2] + samples[(y * width + x) * 3 + 2] * samples[(y * width + x) * 3 + 2];
+    double r = squaredSamples[(y * width + x)] - samples[(y * width + x) * 3] * samples[(y * width + x) * 3];
+    double g = squaredSamples[(y * width + x) + 1] - samples[(y * width + x) * 3 + 1] * samples[(y * width + x) * 3 + 1];
+    double b = squaredSamples[(y * width + x) + 2] - samples[(y * width + x) * 3 + 2] * samples[(y * width + x) * 3 + 2];
 
     r *= exposure;
     g *= exposure;
