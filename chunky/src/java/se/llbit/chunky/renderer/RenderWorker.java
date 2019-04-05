@@ -123,8 +123,8 @@ public class RenderWorker extends Thread {
             double oy = random.nextDouble();
             double ox = random.nextDouble();
 
-            cam.calcViewRay(ray, random, (-halfWidth + (x + ox) * invHeight),
-                (-.5 + (y + oy) * invHeight));
+            cam.calcViewRay(ray, random, (-halfWidth + (x + ox) * invHeight) / 400.0,
+                (-.5 + (y + oy) * invHeight) / 400.0);
 
             scene.rayTrace(rayTracer, state);
 
