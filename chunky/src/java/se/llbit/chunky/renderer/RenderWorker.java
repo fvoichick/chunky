@@ -16,6 +16,11 @@
  */
 package se.llbit.chunky.renderer;
 
+import java.io.IOException;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Formatter;
 import se.llbit.chunky.renderer.scene.Camera;
 import se.llbit.chunky.renderer.scene.RayTracer;
 import se.llbit.chunky.renderer.scene.Scene;
@@ -132,6 +137,51 @@ public class RenderWorker extends Thread {
             sg += ray.color.y;
             sb += ray.color.z;
           }
+
+          final int saveX = 6, saveY = 157;
+          final double ox = 0.5, oy = 0.5;
+          if (x == saveX && y == saveY) {
+//            int rgb = ThreadLocalRandom.current().nextInt(3);
+            int rgb = 0; // red
+            try {
+              String prefix = String.format("raytrace-pixel-data-%d-%d-", saveX, saveY);
+//               String prefix = String.format(
+//                  "raytrace-pixel-data-%d-%d-",
+//                  Math.round((saveX + ox) * 10),
+//                  Math.round((saveY + oy) * 10)
+//              );
+              Path file = Files.createTempFile(prefix, ".txt");
+              try (Writer writer = Files.newBufferedWriter(file);
+                  Formatter formatter = new Formatter(writer)) {
+                for (int i = 0; i < 1_000_000; i++) {
+//                  double oy = random.nextDouble();
+//                  double ox = random.nextDouble();
+
+                  cam.calcViewRay(ray, random, (-halfWidth + (x + ox) * invHeight),
+                      (-.5 + (y + oy) * invHeight));
+
+                  scene.rayTrace(rayTracer, state);
+
+                  switch (rgb) {
+                    case 0:
+                      formatter.format("%.15f%n", ray.color.x);
+                      break;
+                    case 1:
+                      formatter.format("%.15f%n", ray.color.y);
+                      break;
+                    case 2:
+                      formatter.format("%.15f%n", ray.color.z);
+                  }
+                }
+
+              }
+              System.out.println(file);
+            } catch (IOException e) {
+              e.printStackTrace();
+            }
+          }
+
+
           double sinv = 1.0 / (scene.spp + RenderConstants.SPP_PER_PASS);
           samples[offset + 0] = (samples[offset + 0] * scene.spp + sr) * sinv;
           samples[offset + 1] = (samples[offset + 1] * scene.spp + sg) * sinv;
