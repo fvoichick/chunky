@@ -24,6 +24,7 @@ import se.llbit.math.QuickMath;
 import se.llbit.math.Ray;
 
 import java.util.Random;
+import se.llbit.math.Vector4;
 
 /**
  * Performs rendering work.
@@ -108,6 +109,7 @@ public class RenderWorker extends Thread {
     double invHeight = 1.0 / height;
 
     double[] samples = scene.getSampleBuffer();
+    double[] squaredSamples = scene.getSquaredSampleBuffer();
     final Camera cam = scene.camera();
 
     if (scene.getMode() != RenderMode.PREVIEW) {
@@ -118,6 +120,7 @@ public class RenderWorker extends Thread {
           double sr = 0;
           double sg = 0;
           double sb = 0;
+          double sr2 = 0.0, sg2 = 0.0, sb2 = 0.0;
 
           for (int i = 0; i < RenderConstants.SPP_PER_PASS; ++i) {
             double oy = random.nextDouble();
@@ -128,14 +131,22 @@ public class RenderWorker extends Thread {
 
             scene.rayTrace(rayTracer, state);
 
-            sr += ray.color.x;
-            sg += ray.color.y;
-            sb += ray.color.z;
+            Vector4 color = ray.color;
+            double r = color.x, g = color.y, b = color.z;
+            sr += r;
+            sg += g;
+            sb += b;
+            sr2 += r*r;
+            sg2 += g*g;
+            sb2 += b*b;
           }
           double sinv = 1.0 / (scene.spp + RenderConstants.SPP_PER_PASS);
           samples[offset + 0] = (samples[offset + 0] * scene.spp + sr) * sinv;
           samples[offset + 1] = (samples[offset + 1] * scene.spp + sg) * sinv;
           samples[offset + 2] = (samples[offset + 2] * scene.spp + sb) * sinv;
+          squaredSamples[offset] = (squaredSamples[offset] * scene.spp + sr2) * sinv;
+          squaredSamples[offset + 1] = (squaredSamples[offset + 1] * scene.spp + sg2) * sinv;
+          squaredSamples[offset + 2] = (squaredSamples[offset + 2] * scene.spp + sb2) * sinv;
 
           if (scene.shouldFinalizeBuffer()) {
             scene.finalizePixel(x, y);

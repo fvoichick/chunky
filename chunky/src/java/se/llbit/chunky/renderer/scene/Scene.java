@@ -108,15 +108,21 @@ public class Scene implements JsonSerializable, Refreshable {
   public static final int DEFAULT_DUMP_FREQUENCY = 500;
   public static final String EXTENSION = ".json";
 
-  /** The current Scene Description Format (SDF) version. */
+  /**
+   * The current Scene Description Format (SDF) version.
+   */
   public static final int SDF_VERSION = 9;
 
   protected static final double fSubSurface = 0.3;
 
-  /** Minimum canvas width. */
+  /**
+   * Minimum canvas width.
+   */
   public static final int MIN_CANVAS_WIDTH = 20;
 
-  /** Minimum canvas height. */
+  /**
+   * Minimum canvas height.
+   */
   public static final int MIN_CANVAS_HEIGHT = 20;
 
   /**
@@ -225,10 +231,14 @@ public class Scene implements JsonSerializable, Refreshable {
    */
   protected boolean fastFog = true;
 
-  /** Fog thickness. */
+  /**
+   * Fog thickness.
+   */
   protected double fogDensity = DEFAULT_FOG_DENSITY;
 
-  /** Controls how much the fog color is blended over the sky/skymap. */
+  /**
+   * Controls how much the fog color is blended over the sky/skymap.
+   */
   protected double skyFogDensity = 1;
 
   protected boolean biomeColors = true;
@@ -266,16 +276,24 @@ public class Scene implements JsonSerializable, Refreshable {
    */
   private Collection<Entity> actors = new LinkedList<>();
 
-  /** Poseable entities in the scene. */
+  /**
+   * Poseable entities in the scene.
+   */
   private Map<PlayerEntity, JsonObject> profiles = new HashMap<>();
 
-  /** Material properties for this scene. */
+  /**
+   * Material properties for this scene.
+   */
   public Map<String, JsonValue> materials = new HashMap<>();
 
-  /** Lower Y clip plane. */
+  /**
+   * Lower Y clip plane.
+   */
   public int yClipMin = PersistentSettings.getYClipMin();
 
-  /** Upper Y clip plane. */
+  /**
+   * Upper Y clip plane.
+   */
   public int yClipMax = PersistentSettings.getYClipMax();
 
   private BVH bvh = new BVH(Collections.emptyList());
@@ -294,24 +312,26 @@ public class Scene implements JsonSerializable, Refreshable {
   private WorldTexture grassTexture = new WorldTexture();
   private WorldTexture foliageTexture = new WorldTexture();
 
-  /** This is the 8-bit channel frame buffer. */
+  /**
+   * This is the 8-bit channel frame buffer.
+   */
   protected BitmapImage frontBuffer;
 
   private BitmapImage backBuffer;
 
+  protected int[] sampleCounts;
   /**
    * HDR sample buffer for the render output.
    *
    * <p>Note: the sample buffer is initially null, it is only
-   * initialized if the scene will be used for rendering.
-   * This avoids allocating new sample buffers each time
-   * we want to copy the scene state to a temporary scene.
+   * initialized if the scene will be used for rendering. This avoids allocating new sample buffers
+   * each time we want to copy the scene state to a temporary scene.
    *
    * <p>TODO: render buffers (sample buffer, alpha channel, etc.)
-   * should really be moved somewhere else and not be so tightly
-   * coupled to the scene settings.
+   * should really be moved somewhere else and not be so tightly coupled to the scene settings.
    */
   protected double[] samples;
+  protected double[] squaredSamples;
 
   private byte[] alphaChannel;
 
@@ -325,8 +345,8 @@ public class Scene implements JsonSerializable, Refreshable {
    * Creates a scene with all default settings.
    *
    * <p>Note: this does not initialize the render buffers for the scene!
-   * Render buffers are initialized either by using loadDescription(),
-   * fromJson(), or importFromJson(), or by calling initBuffers().
+   * Render buffers are initialized either by using loadDescription(), fromJson(), or
+   * importFromJson(), or by calling initBuffers().
    */
   public Scene() {
     width = PersistentSettings.get3DCanvasWidth();
@@ -337,8 +357,7 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * Delete all scene files from the scene directory, leaving only
-   * snapshots untouched.
+   * Delete all scene files from the scene directory, leaving only snapshots untouched.
    */
   public static void delete(String name, File sceneDir) {
     String[] extensions =
@@ -361,14 +380,15 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * This initializes the render buffers when initializing the
-   * scene and after scene canvas size changes.
+   * This initializes the render buffers when initializing the scene and after scene canvas size
+   * changes.
    */
   public synchronized void initBuffers() {
     frontBuffer = new BitmapImage(width, height);
     backBuffer = new BitmapImage(width, height);
     alphaChannel = new byte[width * height];
     samples = new double[width * height * 3];
+    squaredSamples = new double[width * height * 3];
   }
 
   /**
@@ -443,22 +463,20 @@ public class Scene implements JsonSerializable, Refreshable {
       frontBuffer = other.frontBuffer;
       alphaChannel = other.alphaChannel;
       samples = other.samples;
+      squaredSamples = other.samples;
     }
   }
 
   /**
-   * Save the scene description, render dump, and foliage
-   * and grass textures.
-   *
-   * @throws IOException
-   * @throws InterruptedException
+   * Save the scene description, render dump, and foliage and grass textures.
    */
   public synchronized void saveScene(RenderContext context, TaskTracker taskTracker)
       throws IOException, InterruptedException {
     try (TaskTracker.Task task = taskTracker.task("Saving scene", 2)) {
       task.update(1);
 
-      try (BufferedOutputStream out = new BufferedOutputStream(context.getSceneDescriptionOutputStream(name))) {
+      try (BufferedOutputStream out = new BufferedOutputStream(
+          context.getSceneDescriptionOutputStream(name))) {
         saveDescription(out);
       }
 
@@ -598,8 +616,8 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * Trace a ray in this scene. This offsets the ray origin to
-   * move it into the scene coordinate space.
+   * Trace a ray in this scene. This offsets the ray origin to move it into the scene coordinate
+   * space.
    */
   public void rayTrace(RayTracer rayTracer, WorkerState state) {
     state.ray.o.x -= origin.x;
@@ -610,8 +628,8 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * Find closest intersection between ray and scene.
-   * This advances the ray by updating the ray origin if an intersection is found.
+   * Find closest intersection between ray and scene. This advances the ray by updating the ray
+   * origin if an intersection is found.
    *
    * @param ray ray to test against scene
    * @return <code>true</code> if an intersection was found
@@ -686,8 +704,7 @@ public class Scene implements JsonSerializable, Refreshable {
    * Load chunks into the octree.
    *
    * <p>This is the main method loading all voxels into the octree.
-   * The octree finalizer is then run to compute block properties like fence
-   * connectedness.
+   * The octree finalizer is then run to compute block properties like fence connectedness.
    */
   public synchronized void loadChunks(TaskTracker progress, World world,
       Collection<ChunkPosition> chunksToLoad) {
@@ -1238,8 +1255,8 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * Start rendering. This wakes up threads waiting on a scene
-   * state change, even if the scene state did not actually change.
+   * Start rendering. This wakes up threads waiting on a scene state change, even if the scene state
+   * did not actually change.
    */
   public synchronized void startHeadlessRender() {
     mode = RenderMode.RENDERING;
@@ -1278,8 +1295,7 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * Halt the rendering process.
-   * Puts the renderer back in preview mode.
+   * Halt the rendering process. Puts the renderer back in preview mode.
    */
   public synchronized void haltRender() {
     if (mode != RenderMode.PREVIEW) {
@@ -1342,8 +1358,8 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * Trace a ray in the Octree towards the current view target.
-   * The ray is displaced to the target position if it hits something.
+   * Trace a ray in the Octree towards the current view target. The ray is displaced to the target
+   * position if it hits something.
    *
    * <p>The view target is defined by the current camera state.
    *
@@ -1498,8 +1514,7 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * @param value the dumpFrequency to set, if value is zero then render dumps
-   *              are disabled
+   * @param value the dumpFrequency to set, if value is zero then render dumps are disabled
    */
   public void setDumpFrequency(int value) {
     value = Math.max(0, value);
@@ -1550,9 +1565,8 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * Change the canvas size for this scene. This will refresh
-   * the scene and reinitialize the sample buffers if the
-   * new canvas size is not identical to the current canvas size.
+   * Change the canvas size for this scene. This will refresh the scene and reinitialize the sample
+   * buffers if the new canvas size is not identical to the current canvas size.
    */
   public synchronized void setCanvasSize(int canvasWidth, int canvasHeight) {
     int newWidth = Math.max(MIN_CANVAS_WIDTH, canvasWidth);
@@ -1598,7 +1612,6 @@ public class Scene implements JsonSerializable, Refreshable {
 
   /**
    * Save the current frame as a PNG image.
-   * @throws IOException
    */
   public synchronized void saveFrame(File targetFile, TaskTracker progress)
       throws IOException {
@@ -1730,7 +1743,8 @@ public class Scene implements JsonSerializable, Refreshable {
       task.update(1);
       Log.info("Saving octree " + fileName);
 
-      try (DataOutputStream out = new DataOutputStream(new GZIPOutputStream(context.getSceneFileOutputStream(fileName)))) {
+      try (DataOutputStream out = new DataOutputStream(
+          new GZIPOutputStream(context.getSceneFileOutputStream(fileName)))) {
         worldOctree.store(out);
         worldOctree.setTimestamp(context.fileTimestamp(fileName));
 
@@ -1752,7 +1766,8 @@ public class Scene implements JsonSerializable, Refreshable {
     try (TaskTracker.Task task = progress.task("Saving grass texture", 2)) {
       task.update(1);
       Log.info("Saving grass texture " + fileName);
-      try (DataOutputStream out = new DataOutputStream(new GZIPOutputStream(context.getSceneFileOutputStream(fileName)))) {
+      try (DataOutputStream out = new DataOutputStream(
+          new GZIPOutputStream(context.getSceneFileOutputStream(fileName)))) {
         grassTexture.store(out);
         grassTexture.setTimestamp(context.fileTimestamp(fileName));
         task.update(2);
@@ -1772,7 +1787,8 @@ public class Scene implements JsonSerializable, Refreshable {
     try (TaskTracker.Task task = progress.task("Saving foliage texture", 2)) {
       task.update(1);
       Log.info("Saving foliage texture " + fileName);
-      try (DataOutputStream out = new DataOutputStream(new GZIPOutputStream(context.getSceneFileOutputStream(fileName)))) {
+      try (DataOutputStream out = new DataOutputStream(
+          new GZIPOutputStream(context.getSceneFileOutputStream(fileName)))) {
         foliageTexture.store(out);
         foliageTexture.setTimestamp(context.fileTimestamp(fileName));
         task.update(2);
@@ -1814,7 +1830,8 @@ public class Scene implements JsonSerializable, Refreshable {
     try (TaskTracker.Task task = progress.task("Loading octree", 2)) {
       task.update(1);
       Log.info("Loading octree " + fileName);
-      try (DataInputStream in = new DataInputStream(new GZIPInputStream(context.getSceneFileInputStream(fileName)))) {
+      try (DataInputStream in = new DataInputStream(
+          new GZIPInputStream(context.getSceneFileInputStream(fileName)))) {
         worldOctree = Octree.load(in);
         worldOctree.setTimestamp(context.fileTimestamp(fileName));
         task.update(2);
@@ -1836,7 +1853,8 @@ public class Scene implements JsonSerializable, Refreshable {
     try (TaskTracker.Task task = progress.task("Loading grass texture", 2)) {
       task.update(1);
       Log.info("Loading grass texture " + fileName);
-      try (DataInputStream in = new DataInputStream(new GZIPInputStream(context.getSceneFileInputStream(fileName)))) {
+      try (DataInputStream in = new DataInputStream(
+          new GZIPInputStream(context.getSceneFileInputStream(fileName)))) {
         grassTexture = WorldTexture.load(in);
         grassTexture.setTimestamp(context.fileTimestamp(fileName));
         task.update(2);
@@ -1854,7 +1872,8 @@ public class Scene implements JsonSerializable, Refreshable {
     try (TaskTracker.Task task = progress.task("Loading foliage texture", 2)) {
       task.update(1);
       Log.info("Loading foliage texture " + fileName);
-      try (DataInputStream in = new DataInputStream(new GZIPInputStream(context.getSceneFileInputStream(fileName)))) {
+      try (DataInputStream in = new DataInputStream(
+          new GZIPInputStream(context.getSceneFileInputStream(fileName)))) {
         foliageTexture = WorldTexture.load(in);
         foliageTexture.setTimestamp(context.fileTimestamp(fileName));
         task.update(2);
@@ -1891,7 +1910,8 @@ public class Scene implements JsonSerializable, Refreshable {
       }
       return false;
     }
-    try (DataInputStream in = new DataInputStream(new GZIPInputStream(new FileInputStream(dumpFile)));
+    try (DataInputStream in = new DataInputStream(
+        new GZIPInputStream(new FileInputStream(dumpFile)));
         TaskTracker.Task task = taskTracker.task("Loading render dump", 2)) {
       task.update(1);
       Log.info("Reading render dump " + fileName);
@@ -1923,8 +1943,8 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * Finalize a pixel. Calculates the resulting RGB color values for
-   * the pixel and sets these in the bitmap image.
+   * Finalize a pixel. Calculates the resulting RGB color values for the pixel and sets these in the
+   * bitmap image.
    */
   public void finalizePixel(int x, int y) {
     finalized = true;
@@ -1969,9 +1989,15 @@ public class Scene implements JsonSerializable, Refreshable {
           float aces_c = 2.43f;
           float aces_d = 0.59f;
           float aces_e = 0.14f;
-          r = QuickMath.max(QuickMath.min((r * (aces_a * r + aces_b)) / (r * (aces_c * r + aces_d) + aces_e), 1), 0);
-          g = QuickMath.max(QuickMath.min((g * (aces_a * g + aces_b)) / (r * (aces_c * g + aces_d) + aces_e), 1), 0);
-          b = QuickMath.max(QuickMath.min((b * (aces_a * b + aces_b)) / (r * (aces_c * b + aces_d) + aces_e), 1), 0);
+          r = QuickMath.max(
+              QuickMath.min((r * (aces_a * r + aces_b)) / (r * (aces_c * r + aces_d) + aces_e), 1),
+              0);
+          g = QuickMath.max(
+              QuickMath.min((g * (aces_a * g + aces_b)) / (r * (aces_c * g + aces_d) + aces_e), 1),
+              0);
+          b = QuickMath.max(
+              QuickMath.min((b * (aces_a * b + aces_b)) / (r * (aces_c * b + aces_d) + aces_e), 1),
+              0);
           break;
         case TONEMAP3:
           // http://filmicgames.com/archives/75
@@ -1990,7 +2016,9 @@ public class Scene implements JsonSerializable, Refreshable {
           g = ((g * (hA * g + hC * hB) + hD * hE) / (g * (hA * g + hB) + hD * hF)) - hE / hF;
           b = ((b * (hA * b + hC * hB) + hD * hE) / (b * (hA * b + hB) + hD * hF)) - hE / hF;
           float hW = 11.2f;
-          float whiteScale = 1.0f / (((hW * (hA * hW + hC * hB) + hD * hE) / (hW * (hA * hW + hB) + hD * hF)) - hE / hF);
+          float whiteScale =
+              1.0f / (((hW * (hA * hW + hC * hB) + hD * hE) / (hW * (hA * hW + hB) + hD * hF))
+                  - hE / hF);
           r *= whiteScale;
           g *= whiteScale;
           b *= whiteScale;
@@ -2110,6 +2138,10 @@ public class Scene implements JsonSerializable, Refreshable {
     }
   }
 
+  public int[] getCountBuffer() {
+    return sampleCounts;
+  }
+
   /**
    * Get direct access to the sample buffer.
    *
@@ -2117,6 +2149,10 @@ public class Scene implements JsonSerializable, Refreshable {
    */
   public double[] getSampleBuffer() {
     return samples;
+  }
+
+  public double[] getSquaredSampleBuffer() {
+    return squaredSamples;
   }
 
   /**
@@ -2127,8 +2163,8 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * Set the buffer update flag. The buffer update flag decides whether the
-   * renderer should update the buffered image.
+   * Set the buffer update flag. The buffer update flag decides whether the renderer should update
+   * the buffered image.
    */
   public void setBufferFinalization(boolean value) {
     finalizeBuffer = value;
@@ -2281,7 +2317,8 @@ public class Scene implements JsonSerializable, Refreshable {
     }
   }
 
-  @Override public synchronized JsonObject toJson() {
+  @Override
+  public synchronized JsonObject toJson() {
     JsonObject json = new JsonObject();
     json.add("sdfVersion", SDF_VERSION);
     json.add("name", name);
@@ -2434,14 +2471,18 @@ public class Scene implements JsonSerializable, Refreshable {
     actors.clear();
   }
 
-  /** Create a backup of a scene file. */
+  /**
+   * Create a backup of a scene file.
+   */
   public void backupFile(RenderContext context, String fileName) {
     File renderDir = context.getSceneDirectory();
     File file = new File(renderDir, fileName);
     backupFile(context, file);
   }
 
-  /** Create a backup of a scene file. */
+  /**
+   * Create a backup of a scene file.
+   */
   public void backupFile(RenderContext context, File file) {
     if (file.exists()) {
       // Try to create backup. It is not a problem if we fail this.
@@ -2497,8 +2538,7 @@ public class Scene implements JsonSerializable, Refreshable {
    *
    * <p>This initializes the sample buffers.
    *
-   * @param in Input stream to read the JSON data from. The stream will
-   * be closed when done.
+   * @param in Input stream to read the JSON data from. The stream will be closed when done.
    */
   public void loadDescription(InputStream in) throws IOException {
     try (JsonParser parser = new JsonParser(in)) {
@@ -2512,8 +2552,7 @@ public class Scene implements JsonSerializable, Refreshable {
   /**
    * Write the scene description as JSON.
    *
-   * @param out Output stream to write the JSON data to.
-   * The stream will not be closed when done.
+   * @param out Output stream to write the JSON data to. The stream will not be closed when done.
    */
   public void saveDescription(OutputStream out) throws IOException {
     PrettyPrinter pp = new PrettyPrinter("  ", new PrintStream(out));
@@ -2649,10 +2688,11 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * Called when the scene description has been altered in a way that
-   * forces the rendering to restart.
+   * Called when the scene description has been altered in a way that forces the rendering to
+   * restart.
    */
-  @Override public synchronized void refresh() {
+  @Override
+  public synchronized void refresh() {
     if (mode == RenderMode.PAUSED) {
       mode = RenderMode.RENDERING;
     }
@@ -2734,6 +2774,7 @@ public class Scene implements JsonSerializable, Refreshable {
   public double getSkyFogDensity() {
     return skyFogDensity;
   }
+
   public void setFastFog(boolean value) {
     if (fastFog != value) {
       fastFog = value;
@@ -2766,6 +2807,7 @@ public class Scene implements JsonSerializable, Refreshable {
 
   /**
    * Clears the reset reason and returns the previous reason.
+   *
    * @return the current reset reason
    */
   public synchronized ResetReason getResetReason() {
