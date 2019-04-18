@@ -28,6 +28,9 @@ import java.util.Random;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.commons.math3.distribution.TDistribution;
+
+
 
 /**
  * Performs rendering work.
@@ -183,12 +186,17 @@ public class RenderWorker extends Thread {
         // compute 'noise' variance-based metrics:
         // Note: this metric only makles sense for n >= 2 samples (otherwise, it is 0 and/or NaN)
         if (scene.sampleCounts[offset/3] >= 2) {
-          double r_noise = (r_avg_sq - r_avg*r_avg)/(n_samples - 1);
-          double g_noise = (g_avg_sq - g_avg*g_avg)/(n_samples - 1);
-          double b_noise = (b_avg_sq - b_avg*b_avg)/(n_samples - 1);
+          double r_noise = (r_avg_sq - r_avg*r_avg)/(n_samples);
+          double g_noise = (g_avg_sq - g_avg*g_avg)/(n_samples);
+          double b_noise = (b_avg_sq - b_avg*b_avg)/(n_samples);
+
+          // compute d s.t. 95% confidence interval for the data is 2d wide
+          // (technically, compute separate d for each of r,g,b and then add them together. TODO: get maximum instead?)
+          TDistribution t= new TDistribution(n_samples-1);
+          double d_sum = t.inverseCumulativeProbability(1-0.025)*(Math.sqrt(r_noise) + Math.sqrt(g_noise) + Math.sqrt(b_noise));
 
           // put same pixel back into queue with new noise and sample count value:
-          tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, r_noise + g_noise + b_noise, n_samples));
+          tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, d_sum, n_samples));
         }
         else {
           tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, 0, n_samples));
