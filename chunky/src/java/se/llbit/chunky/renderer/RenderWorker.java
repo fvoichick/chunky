@@ -166,7 +166,7 @@ public class RenderWorker extends Thread {
         double b_noise = (scene.squaredSamples[offset + 2] - samples[offset]*samples[offset + 2]) / (scene.sampleCounts[offset/3]);
         //System.out.println(r_noise + g_noise + b_noise);
 
-        // put same pixel back into queue with new noise value:
+        // put same pixel back into queue with new noise and sample count value:
         tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, r_noise + g_noise + b_noise, scene.sampleCounts[offset/3]));
 
         //System.out.println(tile.pixelQueue.size());

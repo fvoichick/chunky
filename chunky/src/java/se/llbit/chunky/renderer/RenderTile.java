@@ -42,9 +42,8 @@ public class RenderTile {
         else if (p2.w == 0) {
           return 1;
         }
-        // Otherwise, priorotize one with bigger z value
-        // Note inverted p2/p1 for subtraction: it causes bigger numbers to be sorted first.
-        return (int) Math.ceil(p1.z - p2.z); // ceil so that less-than-one difference still matters.
+        // Otherwise, priorotize the one with smaller w (= sample count)
+        return (int) Math.ceil(p1.w - p2.w); // ceil so that less-than-one difference still matters.
       }
 	};
 
