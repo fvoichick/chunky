@@ -44,6 +44,20 @@ public class RenderWorker extends Thread {
    */
   private static final int SLEEP_INTERVAL = 75000000;
 
+  // map of n degrees-of-freedom for T-distribution to inverse CDF at 1-alpha (to avoid recomputing)
+  // (alpha is fixed to get 95% confidence interval in the final calculation)
+  private static Map<Integer, Double> tVals = new HashMap<>();
+
+  public static Double getTval(int degs) {
+    if (tVals.containsKey(degs)) {
+      return tVals.get(degs);
+    }
+    TDistribution t= new TDistribution(degs);
+    double d_sum = t.inverseCumulativeProbability(1-0.025);
+    tVals.put(degs, d_sum);
+    return d_sum;
+  }
+
   protected final int id;
   protected final AbstractRenderManager manager;
 
@@ -189,11 +203,11 @@ public class RenderWorker extends Thread {
           double r_noise = (r_avg_sq - r_avg*r_avg)/(n_samples);
           double g_noise = (g_avg_sq - g_avg*g_avg)/(n_samples);
           double b_noise = (b_avg_sq - b_avg*b_avg)/(n_samples);
+          double max_noise = Math.max(Math.max(r_noise, g_noise), b_noise);
 
           // compute d s.t. 95% confidence interval for the data is 2d wide
           // (technically, compute separate d for each of r,g,b and then add them together. TODO: get maximum instead?)
-          TDistribution t= new TDistribution(n_samples-1);
-          double d_sum = t.inverseCumulativeProbability(1-0.025)*(Math.sqrt(r_noise) + Math.sqrt(g_noise) + Math.sqrt(b_noise));
+          double d_sum = getTval(n_samples-1)*(Math.sqrt(max_noise));
 
           // put same pixel back into queue with new noise and sample count value:
           tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, d_sum, n_samples));
@@ -206,8 +220,7 @@ public class RenderWorker extends Thread {
           scene.finalizePixel(x, y);
         }
       }
-
-      // System.out.println(pixels.size());
+      // System.out.println(pixels.size()); // TODO: output to a file.
     } else {
       // Preview rendering.
       Ray target = new Ray(ray);
