@@ -111,46 +111,52 @@ public class RenderWorker extends Thread {
     final Camera cam = scene.camera();
 
     if (scene.getMode() != RenderMode.PREVIEW) {
-      for (int y = tile.y0; y < tile.y1; ++y) {
-        int offset = y * width * 3 + tile.x0 * 3;
-        for (int x = tile.x0; x < tile.x1; ++x) {
 
-          double sr = 0;
-          double sg = 0;
-          double sb = 0;
-          double sr2 = 0, sg2 = 0, sb2 = 0;
+      int tile_width = tile.x1 - tile.x0;
+      int tile_height = tile.y1 - tile.y0;
+      
+      // The budget (how many rays we can cast) for this pass
+      int budget = tile_height * tile_width * RenderConstants.SPP_PER_PASS;
 
-          for (int i = 0; i < RenderConstants.SPP_PER_PASS; ++i) {
-            double oy = random.nextDouble();
-            double ox = random.nextDouble();
+      for (int p = 0; p < budget; ++p){
+        int x = tile.x0 + p % tile_width;
+        int y = tile.y0 + p / tile_width;
 
-            cam.calcViewRay(ray, random, (-halfWidth + (x + ox) * invHeight),
-                (-.5 + (y + oy) * invHeight));
+        int offset = y * width * 3 + x * 3;
 
-            scene.rayTrace(rayTracer, state);
+        double sr = 0;
+        double sg = 0;
+        double sb = 0;
+        double sr2 = 0, sg2 = 0, sb2 = 0;
 
-            sr += ray.color.x;
-            sg += ray.color.y;
-            sb += ray.color.z;
-            sr2 += ray.color.x * ray.color.x;
-            sg2 += ray.color.y * ray.color.y;
-            sb2 += ray.color.z * ray.color.z;
-          }
-          double sinv = 1.0 / (scene.spp + RenderConstants.SPP_PER_PASS);
-          samples[offset + 0] = (samples[offset + 0] * scene.spp + sr) * sinv;
-          samples[offset + 1] = (samples[offset + 1] * scene.spp + sg) * sinv;
-          samples[offset + 2] = (samples[offset + 2] * scene.spp + sb) * sinv;
-          scene.squaredSamples[offset] = (scene.squaredSamples[offset] * scene.spp + sr2) * sinv;
-          scene.squaredSamples[offset + 1] = (scene.squaredSamples[offset + 1] * scene.spp + sg2) * sinv;
-          scene.squaredSamples[offset + 2] = (scene.squaredSamples[offset + 2] * scene.spp + sb2) * sinv;
+        double oy = random.nextDouble();
+        double ox = random.nextDouble();
 
-          if (scene.shouldFinalizeBuffer()) {
-            scene.finalizePixel(x, y);
-          }
+        cam.calcViewRay(ray, random, (-halfWidth + (x + ox) * invHeight),
+            (-.5 + (y + oy) * invHeight));
 
-          offset += 3;
+        scene.rayTrace(rayTracer, state);
+
+        sr += ray.color.x;
+        sg += ray.color.y;
+        sb += ray.color.z;
+        sr2 += ray.color.x * ray.color.x;
+        sg2 += ray.color.y * ray.color.y;
+        sb2 += ray.color.z * ray.color.z;
+
+        double sinv = 1.0 / (scene.spp + RenderConstants.SPP_PER_PASS);
+        samples[offset + 0] = (samples[offset + 0] * scene.spp + sr) * sinv;
+        samples[offset + 1] = (samples[offset + 1] * scene.spp + sg) * sinv;
+        samples[offset + 2] = (samples[offset + 2] * scene.spp + sb) * sinv;
+        scene.squaredSamples[offset] = (scene.squaredSamples[offset] * scene.spp + sr2) * sinv;
+        scene.squaredSamples[offset + 1] = (scene.squaredSamples[offset + 1] * scene.spp + sg2) * sinv;
+        scene.squaredSamples[offset + 2] = (scene.squaredSamples[offset + 2] * scene.spp + sb2) * sinv;
+
+        if (scene.shouldFinalizeBuffer()) {
+          scene.finalizePixel(x, y);
         }
       }
+
 
     } else {
       // Preview rendering.
