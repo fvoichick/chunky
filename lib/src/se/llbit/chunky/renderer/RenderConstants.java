@@ -47,5 +47,5 @@ public interface RenderConstants {
   /**
    * Default tile width
    */
-  int TILE_WIDTH_DEFAULT = 8;
+  int TILE_WIDTH_DEFAULT = 400;
 }

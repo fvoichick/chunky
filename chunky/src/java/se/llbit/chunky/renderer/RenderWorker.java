@@ -22,6 +22,7 @@ import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.log.Log;
 import se.llbit.math.QuickMath;
 import se.llbit.math.Ray;
+import se.llbit.math.Vector4;
 
 import java.util.Random;
 
@@ -114,17 +115,17 @@ public class RenderWorker extends Thread {
 
       int tile_width = tile.x1 - tile.x0;
       int tile_height = tile.y1 - tile.y0;
-      
+
       // The budget (how many rays we can cast) for this pass
       int budget = tile_height * tile_width * RenderConstants.SPP_PER_PASS;
 
       for (int p = 0; p < budget; ++p){
-        int x = tile.x0 + p % tile_width;
-        int y = tile.y0 + p / tile_width;
+
+        Vector4 pixel = tile.pixelQueue.poll(); // pop top pixel off the queue
         //int x = tile.x0 + p % tile_width;
         //int y = tile.y0 + p / tile_width;
-        int x = tile.x0 + random.nextInt(tile.x1 - tile.x0);
-        int y = tile.y0 + random.nextInt(tile.y1 - tile.y0);
+        int x = (int) pixel.x;
+        int y = (int) pixel.y;
 
         int offset = y * width * 3 + x * 3;
 
@@ -156,11 +157,25 @@ public class RenderWorker extends Thread {
         scene.squaredSamples[offset + 1] = (scene.squaredSamples[offset + 1] * scene.spp + sg2) * sinv;
         scene.squaredSamples[offset + 2] = (scene.squaredSamples[offset + 2] * scene.spp + sb2) * sinv;
 
+        scene.sampleCounts[offset/3] += 1;
+
+        // compute 'noise' variance-based metrics:
+        // TODO: use n-1, but also avoid dividing by 0
+        double r_noise = (scene.squaredSamples[offset] - samples[offset]*samples[offset]) / (scene.sampleCounts[offset/3]);
+        double g_noise = (scene.squaredSamples[offset + 1] - samples[offset]*samples[offset + 1]) / (scene.sampleCounts[offset/3]);
+        double b_noise = (scene.squaredSamples[offset + 2] - samples[offset]*samples[offset + 2]) / (scene.sampleCounts[offset/3]);
+        //System.out.println(r_noise + g_noise + b_noise);
+
+        // put same pixel back into queue with new noise value:
+        tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, r_noise + g_noise + b_noise, scene.sampleCounts[offset/3]));
+
+        //System.out.println(tile.pixelQueue.size());
+        //System.out.println();
+
         if (scene.shouldFinalizeBuffer()) {
           scene.finalizePixel(x, y);
         }
       }
-
 
     } else {
       // Preview rendering.

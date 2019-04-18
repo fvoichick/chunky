@@ -16,17 +16,53 @@
  */
 package se.llbit.chunky.renderer;
 
+import se.llbit.math.Vector4;
+import java.util.Comparator;
+import java.util.PriorityQueue;
+import java.util.Queue;
+
+
 /**
  * Describes part of the canvas to be rendered by a render worker.
  */
 public class RenderTile {
   public final int x0, x1, y0, y1;
+  // The x and y of each element are the x/y of the pixel; the z is the value by which the priority queue is ordered.
+  // the w value is a 'secondary' (well, maybe primary) value which ensures that the pixels with NO data get prioritized.
+  public Queue<Vector4> pixelQueue;
+
+  public static Comparator<Vector4> zComparator = new Comparator<Vector4>(){
+
+		@Override
+		public int compare(Vector4 p1, Vector4 p2) {
+        // if one of the vectors has 0 as the secondary value, then it has no data/no rays at all. prioritize it.
+        if ( p1.w == 0) {
+          return -1;
+        }
+        else if (p2.w == 0) {
+          return 1;
+        }
+        // Otherwise, priorotize one with bigger z value
+        // Note inverted p2/p1 for subtraction: it causes bigger numbers to be sorted first.
+        return (int) Math.ceil(p1.z - p2.z); // ceil so that less-than-one difference still matters.
+      }
+	};
 
   public RenderTile(int x0, int x1, int y0, int y1) {
+    System.out.println("new tile");
+
     this.x0 = x0;
     this.x1 = x1;
     this.y0 = y0;
     this.y1 = y1;
+    // the queue should always have all the pixels in it (or all pixels -1 while one is being updated)
+    pixelQueue = new PriorityQueue<Vector4>( (x1-x0)*(y1-y0), zComparator);
+    // initialize pixel queue with z=0 for all relevant pixels:
+    for (int y = y0; y < y1; ++y) {
+      for (int x = x0; x < x1; ++x) {
+        pixelQueue.add(new Vector4(x, y, 0, 0));
+      }
+    }
   }
 
   @Override public String toString() {
