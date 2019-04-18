@@ -121,6 +121,10 @@ public class RenderWorker extends Thread {
       for (int p = 0; p < budget; ++p){
         int x = tile.x0 + p % tile_width;
         int y = tile.y0 + p / tile_width;
+        //int x = tile.x0 + p % tile_width;
+        //int y = tile.y0 + p / tile_width;
+        int x = tile.x0 + random.nextInt(tile.x1 - tile.x0);
+        int y = tile.y0 + random.nextInt(tile.y1 - tile.y0);
 
         int offset = y * width * 3 + x * 3;
 
