@@ -35,9 +35,10 @@ public class RenderTile {
 
 		@Override
 		public int compare(Vector4 p1, Vector4 p2) {
-        // if at lest one of the vectors has had fewer than 2 samples, there is not enough data for variance metric.
+        // if at lest one of the vectors has had fewer than N samples,
+        // there is not enough data for the variance metric to give sensible results.
         // prioritize the one with fewest samples instead.
-        if ( p1.w < 2 || p2.w < 2) {
+        if ( p1.w < 50 || p2.w < 50) {
           return (int) Math.ceil(p1.w - p2.w);
         }
         // Otherwise, priorotize the one with smaller z (= sample count)
