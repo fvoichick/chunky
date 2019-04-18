@@ -203,10 +203,10 @@ public class RenderWorker extends Thread {
           double r_noise = (r_avg_sq - r_avg*r_avg)/(n_samples);
           double g_noise = (g_avg_sq - g_avg*g_avg)/(n_samples);
           double b_noise = (b_avg_sq - b_avg*b_avg)/(n_samples);
+          // base computation off the maximum observed noise in the pixel:
           double max_noise = Math.max(Math.max(r_noise, g_noise), b_noise);
 
           // compute d s.t. 95% confidence interval for the data is 2d wide
-          // (technically, compute separate d for each of r,g,b and then add them together. TODO: get maximum instead?)
           double d_sum = getTval(n_samples-1)*(Math.sqrt(max_noise));
 
           // put same pixel back into queue with new noise and sample count value:
