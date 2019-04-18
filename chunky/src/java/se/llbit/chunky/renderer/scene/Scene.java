@@ -1952,15 +1952,16 @@ public class Scene implements JsonSerializable, Refreshable {
     double r = samples[(y * width + x) * 3 + 0];
     double g = samples[(y * width + x) * 3 + 1];
     double b = samples[(y * width + x) * 3 + 2];
-    /*/
-    double r = sampleCounts[(y * width + x)]/100.0;
-    double g = sampleCounts[(y * width + x)]/100.0;
-    double b = sampleCounts[(y * width + x)]/100.0;
-    //*/
 
     r *= exposure;
     g *= exposure;
     b *= exposure;
+
+    /*/
+    double r = Math.log(sampleCounts[(y * width + x)])/100.0;
+    double g = r;
+    double b = r;
+    //*/
 
     if (mode != RenderMode.PREVIEW) {
       switch (postprocess) {

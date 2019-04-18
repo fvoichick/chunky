@@ -35,21 +35,17 @@ public class RenderTile {
 
 		@Override
 		public int compare(Vector4 p1, Vector4 p2) {
-        // if one of the vectors has 0 as the secondary value, then it has no data/no rays at all. prioritize it.
-        if ( p1.w == 0) {
-          return -1;
+        // if at lest one of the vectors has had fewer than 2 samples, there is not enough data for variance metric.
+        // prioritize the one with fewest samples instead.
+        if ( p1.w < 2 || p2.w < 2) {
+          return (int) Math.ceil(p1.w - p2.w);
         }
-        else if (p2.w == 0) {
-          return 1;
-        }
-        // Otherwise, priorotize the one with smaller w (= sample count)
-        return (int) Math.ceil(p1.w - p2.w); // ceil so that less-than-one difference still matters.
+        // Otherwise, priorotize the one with smaller z (= sample count)
+        return (int) Math.ceil(p2.z - p1.z); // ceil so that less-than-one difference still matters.
       }
 	};
 
   public RenderTile(int x0, int x1, int y0, int y1) {
-    System.out.println("new tile");
-
     this.x0 = x0;
     this.x1 = x1;
     this.y0 = y0;

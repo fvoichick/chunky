@@ -25,6 +25,9 @@ import se.llbit.math.Ray;
 import se.llbit.math.Vector4;
 
 import java.util.Random;
+import java.util.HashMap;
+import java.util.Map;
+
 
 /**
  * Performs rendering work.
@@ -113,6 +116,9 @@ public class RenderWorker extends Thread {
 
     if (scene.getMode() != RenderMode.PREVIEW) {
 
+      // for debugging purposes - map of pixel coord to how many times it was processed this run
+      //Map<String, Integer> pixels = new HashMap<>();
+
       int tile_width = tile.x1 - tile.x0;
       int tile_height = tile.y1 - tile.y0;
 
@@ -126,6 +132,12 @@ public class RenderWorker extends Thread {
         //int y = tile.y0 + p / tile_width;
         int x = (int) pixel.x;
         int y = (int) pixel.y;
+
+        /*
+        String pkey = x+" "+y;
+        pixels.putIfAbsent(pkey, 0);
+        pixels.put(pkey, pixels.get(pkey) + 1);
+        //*/
 
         int offset = y * width * 3 + x * 3;
 
@@ -150,33 +162,44 @@ public class RenderWorker extends Thread {
         sb2 += ray.color.z * ray.color.z;
 
         double sinv = 1.0 / (scene.spp + RenderConstants.SPP_PER_PASS);
-        samples[offset + 0] = (samples[offset + 0] * scene.spp + sr) * sinv;
-        samples[offset + 1] = (samples[offset + 1] * scene.spp + sg) * sinv;
-        samples[offset + 2] = (samples[offset + 2] * scene.spp + sb) * sinv;
-        scene.squaredSamples[offset] = (scene.squaredSamples[offset] * scene.spp + sr2) * sinv;
-        scene.squaredSamples[offset + 1] = (scene.squaredSamples[offset + 1] * scene.spp + sg2) * sinv;
-        scene.squaredSamples[offset + 2] = (scene.squaredSamples[offset + 2] * scene.spp + sb2) * sinv;
 
-        scene.sampleCounts[offset/3] += 1;
+        double r_avg = (samples[offset + 0] * scene.spp + sr) * sinv;
+        double g_avg = (samples[offset + 1] * scene.spp + sg) * sinv;
+        double b_avg = (samples[offset + 2] * scene.spp + sb) * sinv;
+        samples[offset + 0] = r_avg;
+        samples[offset + 1] = g_avg;
+        samples[offset + 2] = b_avg;
+
+        double r_avg_sq = (scene.squaredSamples[offset] * scene.spp + sr2) * sinv;
+        double g_avg_sq = (scene.squaredSamples[offset + 1] * scene.spp + sg2) * sinv;
+        double b_avg_sq = (scene.squaredSamples[offset + 2] * scene.spp + sb2) * sinv;
+        scene.squaredSamples[offset] = r_avg_sq;
+        scene.squaredSamples[offset + 1] = g_avg_sq;
+        scene.squaredSamples[offset + 2] = b_avg_sq;
+
+        int n_samples = scene.sampleCounts[offset/3] + 1;
+        scene.sampleCounts[offset/3] = n_samples;
 
         // compute 'noise' variance-based metrics:
-        // TODO: use n-1, but also avoid dividing by 0
-        double r_noise = (scene.squaredSamples[offset] - samples[offset]*samples[offset]) / (scene.sampleCounts[offset/3]);
-        double g_noise = (scene.squaredSamples[offset + 1] - samples[offset]*samples[offset + 1]) / (scene.sampleCounts[offset/3]);
-        double b_noise = (scene.squaredSamples[offset + 2] - samples[offset]*samples[offset + 2]) / (scene.sampleCounts[offset/3]);
-        //System.out.println(r_noise + g_noise + b_noise);
+        // Note: this metric only makles sense for n >= 2 samples (otherwise, it is 0 and/or NaN)
+        if (scene.sampleCounts[offset/3] >= 2) {
+          double r_noise = (r_avg_sq - r_avg*r_avg)/(n_samples - 1);
+          double g_noise = (g_avg_sq - g_avg*g_avg)/(n_samples - 1);
+          double b_noise = (b_avg_sq - b_avg*b_avg)/(n_samples - 1);
 
-        // put same pixel back into queue with new noise and sample count value:
-        tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, r_noise + g_noise + b_noise, scene.sampleCounts[offset/3]));
-
-        //System.out.println(tile.pixelQueue.size());
-        //System.out.println();
+          // put same pixel back into queue with new noise and sample count value:
+          tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, r_noise + g_noise + b_noise, n_samples));
+        }
+        else {
+          tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, 0, n_samples));
+        }
 
         if (scene.shouldFinalizeBuffer()) {
           scene.finalizePixel(x, y);
         }
       }
 
+      // System.out.println(pixels.size());
     } else {
       // Preview rendering.
       Ray target = new Ray(ray);
