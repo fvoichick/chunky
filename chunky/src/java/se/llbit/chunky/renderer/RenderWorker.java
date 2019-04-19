@@ -134,7 +134,7 @@ public class RenderWorker extends Thread {
     if (scene.getMode() != RenderMode.PREVIEW) {
 
       // for debugging purposes - map of pixel coord to how many times it was processed this run
-      //Map<String, Integer> pixels = new HashMap<>();
+      // Map<String, Integer> pixels = new HashMap<>();
 
       int tile_width = tile.x1 - tile.x0;
       int tile_height = tile.y1 - tile.y0;
@@ -200,6 +200,7 @@ public class RenderWorker extends Thread {
         // compute 'noise' variance-based metrics:
         // Note: this metric only makles sense for n >= 2 samples (otherwise, it is 0 and/or NaN)
         if (scene.sampleCounts[offset/3] >= 2) {
+          // TODO: clamp noise/averages the same way that Chunky clamps them for display?
           double r_noise = (r_avg_sq - r_avg*r_avg)/(n_samples);
           double g_noise = (g_avg_sq - g_avg*g_avg)/(n_samples);
           double b_noise = (b_avg_sq - b_avg*b_avg)/(n_samples);
@@ -207,6 +208,7 @@ public class RenderWorker extends Thread {
           double max_noise = Math.max(Math.max(r_noise, g_noise), b_noise);
 
           // compute d s.t. 95% confidence interval for the data is 2d wide
+          // TODO: could also cap/round n_samples for purposes of getting the T-distribution value (if it stops making a huge difference after a while)
           double d_sum = getTval(n_samples-1)*(Math.sqrt(max_noise));
 
           // put same pixel back into queue with new noise and sample count value:
