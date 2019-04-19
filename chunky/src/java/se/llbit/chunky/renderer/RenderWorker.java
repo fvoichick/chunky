@@ -209,10 +209,10 @@ public class RenderWorker extends Thread {
 
           // compute d s.t. 95% confidence interval for the data is 2d wide
           // TODO: could also cap/round n_samples for purposes of getting the T-distribution value (if it stops making a huge difference after a while)
-          double d_sum = getTval(n_samples-1)*(Math.sqrt(max_noise));
+          // double d_sum = getTval(n_samples-1)*(Math.sqrt(max_noise));
 
           // put same pixel back into queue with new noise and sample count value:
-          tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, d_sum, n_samples));
+          tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, max_noise, n_samples));
         }
         else {
           tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, 0, n_samples));
