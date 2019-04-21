@@ -10,11 +10,11 @@ public class PointComparator implements Comparator<Integer> {
 
   public PointComparator(Scene scene) {
     this.scene = scene;
-    delegate = Comparator.comparingDouble(this::getMaxConfidenceWidth);
+    delegate = Comparator.comparingDouble(this::getMaxConfidenceWidth).reversed().thenComparingInt(offset -> scene.getCountBuffer()[offset]);
   }
 
   public int compare(Integer offsetA, Integer offsetB) {
-    return Comparator.comparingDouble(this::getMaxConfidenceWidth).compare(offsetB, offsetA);
+    return delegate.compare(offsetA, offsetB);
   }
 
   private double getMaxConfidenceWidth(int pixelOffset) {
