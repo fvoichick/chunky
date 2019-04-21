@@ -16,14 +16,15 @@
  */
 package se.llbit.chunky.renderer;
 
+import java.util.Arrays;
+import java.util.Random;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.stream.IntStream;
 import se.llbit.chunky.renderer.scene.Camera;
 import se.llbit.chunky.renderer.scene.RayTracer;
 import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.log.Log;
-import se.llbit.math.QuickMath;
 import se.llbit.math.Ray;
-
-import java.util.Random;
 import se.llbit.math.Vector4;
 
 /**
@@ -65,7 +66,8 @@ public class RenderWorker extends Thread {
     state.ray = new Ray();
   }
 
-  @Override public void run() {
+  @Override
+  public void run() {
     try {
       while (!isInterrupted()) {
         long jobStart = System.nanoTime();
@@ -108,119 +110,64 @@ public class RenderWorker extends Thread {
     double halfWidth = width / (2.0 * height);
     double invHeight = 1.0 / height;
 
+    int[] counts = scene.getCountBuffer();
     double[] samples = scene.getSampleBuffer();
     double[] squaredSamples = scene.getSquaredSampleBuffer();
     final Camera cam = scene.camera();
 
     if (scene.getMode() != RenderMode.PREVIEW) {
-      for (int y = tile.y0; y < tile.y1; ++y) {
-        int offset = y * width * 3 + tile.x0 * 3;
-        for (int x = tile.x0; x < tile.x1; ++x) {
+      for (int i = 0, n = (tile.y1 - tile.y0) * (tile.x1 - tile.x0); i < n; i++) {
+        int offset = scene.bestOffsets.remove();
+        int x = (offset / 3) % width, y = (offset / 3) / width;
+        double sr = 0, sg = 0, sb = 0;
+        double sr2 = 0.0, sg2 = 0.0, sb2 = 0.0;
 
-          double sr = 0;
-          double sg = 0;
-          double sb = 0;
-          double sr2 = 0.0, sg2 = 0.0, sb2 = 0.0;
+        for (int j = 0; j < RenderConstants.SPP_PER_PASS; ++j) {
+          double oy = random.nextDouble();
+          double ox = random.nextDouble();
 
-          for (int i = 0; i < RenderConstants.SPP_PER_PASS; ++i) {
-            double oy = random.nextDouble();
-            double ox = random.nextDouble();
+          cam.calcViewRay(ray, random, (-halfWidth + (x + ox) * invHeight),
+              (-.5 + (y + oy) * invHeight));
 
-            cam.calcViewRay(ray, random, (-halfWidth + (x + ox) * invHeight),
-                (-.5 + (y + oy) * invHeight));
+          scene.rayTrace(rayTracer, state);
 
-            scene.rayTrace(rayTracer, state);
-
-            Vector4 color = ray.color;
-            double r = color.x, g = color.y, b = color.z;
-            sr += r;
-            sg += g;
-            sb += b;
-            sr2 += r*r;
-            sg2 += g*g;
-            sb2 += b*b;
-          }
-          double sinv = 1.0 / (scene.spp + RenderConstants.SPP_PER_PASS);
-          samples[offset + 0] = (samples[offset + 0] * scene.spp + sr) * sinv;
-          samples[offset + 1] = (samples[offset + 1] * scene.spp + sg) * sinv;
-          samples[offset + 2] = (samples[offset + 2] * scene.spp + sb) * sinv;
-          squaredSamples[offset] = (squaredSamples[offset] * scene.spp + sr2) * sinv;
-          squaredSamples[offset + 1] = (squaredSamples[offset + 1] * scene.spp + sg2) * sinv;
-          squaredSamples[offset + 2] = (squaredSamples[offset + 2] * scene.spp + sb2) * sinv;
-
-          if (scene.shouldFinalizeBuffer()) {
-            scene.finalizePixel(x, y);
-          }
-
-          offset += 3;
+          Vector4 color = ray.color;
+          double r = color.x, g = color.y, b = color.z;
+          sr += r;
+          sg += g;
+          sb += b;
+          sr2 += r * r;
+          sg2 += g * g;
+          sb2 += b * b;
         }
+
+        counts[offset] += RenderConstants.SPP_PER_PASS;
+        counts[offset + 1] += RenderConstants.SPP_PER_PASS;
+        counts[offset + 2] += RenderConstants.SPP_PER_PASS;
+        samples[offset] += sr;
+        samples[offset + 1] += sg;
+        samples[offset + 2] += sb;
+        squaredSamples[offset] += sr2;
+        squaredSamples[offset + 1] += sg2;
+        squaredSamples[offset + 2] += sb2;
+
+        if (scene.shouldFinalizeBuffer()) {
+          scene.finalizePixel(x, y);
+        }
+        if (i % 2000 == 0) {
+          PointComparator comp = new PointComparator(scene);
+          System.out.println("Conf:    " + IntStream.range(0, width * height * 3).mapToDouble(
+              comp::getColorConfidenceWidth).summaryStatistics());
+          System.out.println("Counts:  " + Arrays.stream(counts).summaryStatistics());
+          System.out.println("Samples: " + Arrays.stream(samples).summaryStatistics());
+          System.out.println("Ratio:   " + IntStream.range(0, width * height * 3).mapToDouble(o -> samples[o] / counts[o]).summaryStatistics());
+          System.out.println();
+        }
+
+        scene.bestOffsets.add(offset);
+
       }
 
-    } else {
-      // Preview rendering.
-      Ray target = new Ray(ray);
-      boolean hit = scene.traceTarget(target);
-      int tx = (int) QuickMath.floor(target.o.x + target.d.x * Ray.OFFSET);
-      int ty = (int) QuickMath.floor(target.o.y + target.d.y * Ray.OFFSET);
-      int tz = (int) QuickMath.floor(target.o.z + target.d.z * Ray.OFFSET);
-
-      for (int x = tile.x0; x < tile.x1; ++x)
-        for (int y = tile.y0; y < tile.y1; ++y) {
-
-          boolean firstFrame = scene.previewCount > 1;
-          if (firstFrame) {
-            if (((x + y) % 2) == 0) {
-              continue;
-            }
-          } else {
-            if (((x + y) % 2) != 0) {
-              scene.finalizePixel(x, y);
-              continue;
-            }
-          }
-
-          // Draw the crosshairs.
-          if (x == width / 2 && (y >= height / 2 - 5 && y <= height / 2 + 5) || y == height / 2 && (
-              x >= width / 2 - 5 && x <= width / 2 + 5)) {
-            samples[(y * width + x) * 3 + 0] = 0xFF;
-            samples[(y * width + x) * 3 + 1] = 0xFF;
-            samples[(y * width + x) * 3 + 2] = 0xFF;
-            scene.finalizePixel(x, y);
-            continue;
-          }
-
-          cam.calcViewRay(ray, random, (-halfWidth + (double) x * invHeight),
-              (-.5 + (double) y * invHeight));
-
-          scene.rayTrace(previewRayTracer, state);
-
-          // Target highlighting.
-          int rx = (int) QuickMath.floor(ray.o.x + ray.d.x * Ray.OFFSET);
-          int ry = (int) QuickMath.floor(ray.o.y + ray.d.y * Ray.OFFSET);
-          int rz = (int) QuickMath.floor(ray.o.z + ray.d.z * Ray.OFFSET);
-          if (hit && tx == rx && ty == ry && tz == rz) {
-            ray.color.x = 1 - ray.color.x;
-            ray.color.y = 1 - ray.color.y;
-            ray.color.z = 1 - ray.color.z;
-            ray.color.w = 1;
-          }
-
-          samples[(y * width + x) * 3 + 0] = ray.color.x;
-          samples[(y * width + x) * 3 + 1] = ray.color.y;
-          samples[(y * width + x) * 3 + 2] = ray.color.z;
-
-          scene.finalizePixel(x, y);
-
-          if (firstFrame) {
-            if (y % 2 == 0 && x < (width - 1)) {
-              // Copy the current pixel to the next one.
-              scene.copyPixel(y * width + x, 1);
-            } else if (y % 2 != 0 && x > 0) {
-              // Copy the next pixel to this pixel.
-              scene.copyPixel(y * width + x, -1);
-            }
-          }
-        }
     }
   }
 

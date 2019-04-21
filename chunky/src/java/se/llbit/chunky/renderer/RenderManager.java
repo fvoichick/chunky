@@ -320,20 +320,8 @@ public class RenderManager extends AbstractRenderManager implements Renderer {
   private void initializeJobQueue() {
     int canvasWidth = bufferedScene.canvasWidth();
     int canvasHeight = bufferedScene.canvasHeight();
-    numJobs = ((canvasWidth + (tileWidth - 1)) / tileWidth)
-        * ((canvasHeight + (tileWidth - 1)) / tileWidth);
-    if (tileQueue.length != numJobs) {
-      tileQueue = new RenderTile[numJobs];
-    }
-    int xjobs = (canvasWidth + (tileWidth - 1)) / tileWidth;
-    for (int job = 0; job < numJobs; ++job) {
-      // Calculate pixel bounds for this job.
-      int x0 = tileWidth * (job % xjobs);
-      int x1 = Math.min(x0 + tileWidth, canvasWidth);
-      int y0 = tileWidth * (job / xjobs);
-      int y1 = Math.min(y0 + tileWidth, canvasHeight);
-      tileQueue[job] = new RenderTile(x0, x1, y0, y1);
-    }
+    tileQueue = new RenderTile[]{new RenderTile(0, canvasWidth, 0, canvasHeight)};
+    numJobs = 1;
   }
 
   private void waitOnWorkers() throws InterruptedException {

@@ -16,10 +16,47 @@
  */
 package se.llbit.chunky.renderer.scene;
 
+import java.io.BufferedOutputStream;
+import java.io.DataInputStream;
+import java.io.DataOutputStream;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.PriorityQueue;
+import java.util.Queue;
+import java.util.Random;
+import java.util.Set;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.GZIPOutputStream;
 import org.apache.commons.math3.util.FastMath;
 import se.llbit.chunky.PersistentSettings;
+import se.llbit.chunky.block.Block;
+import se.llbit.chunky.entity.ArmorStand;
+import se.llbit.chunky.entity.Entity;
+import se.llbit.chunky.entity.PaintingEntity;
+import se.llbit.chunky.entity.PlayerEntity;
+import se.llbit.chunky.entity.SignEntity;
+import se.llbit.chunky.entity.SkullEntity;
+import se.llbit.chunky.entity.StandingBanner;
+import se.llbit.chunky.entity.WallBanner;
+import se.llbit.chunky.entity.WallSignEntity;
 import se.llbit.chunky.model.WaterModel;
 import se.llbit.chunky.renderer.OutputMode;
+import se.llbit.chunky.renderer.PointComparator;
 import se.llbit.chunky.renderer.Postprocess;
 import se.llbit.chunky.renderer.Refreshable;
 import se.llbit.chunky.renderer.RenderContext;
@@ -29,7 +66,6 @@ import se.llbit.chunky.renderer.WorkerState;
 import se.llbit.chunky.renderer.projection.ProjectionMode;
 import se.llbit.chunky.resources.BitmapImage;
 import se.llbit.chunky.world.Biomes;
-import se.llbit.chunky.block.Block;
 import se.llbit.chunky.world.BlockData;
 import se.llbit.chunky.world.Chunk;
 import se.llbit.chunky.world.ChunkPosition;
@@ -38,15 +74,6 @@ import se.llbit.chunky.world.Heightmap;
 import se.llbit.chunky.world.Material;
 import se.llbit.chunky.world.World;
 import se.llbit.chunky.world.WorldTexture;
-import se.llbit.chunky.entity.ArmorStand;
-import se.llbit.chunky.entity.StandingBanner;
-import se.llbit.chunky.entity.Entity;
-import se.llbit.chunky.entity.PaintingEntity;
-import se.llbit.chunky.entity.PlayerEntity;
-import se.llbit.chunky.entity.SignEntity;
-import se.llbit.chunky.entity.SkullEntity;
-import se.llbit.chunky.entity.WallBanner;
-import se.llbit.chunky.entity.WallSignEntity;
 import se.llbit.json.Json;
 import se.llbit.json.JsonArray;
 import se.llbit.json.JsonObject;
@@ -74,29 +101,6 @@ import se.llbit.util.MinecraftPRNG;
 import se.llbit.util.TaskTracker;
 import se.llbit.util.ZipExport;
 
-import java.io.BufferedOutputStream;
-import java.io.DataInputStream;
-import java.io.DataOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.Set;
-import java.util.function.Consumer;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.GZIPOutputStream;
-
 /**
  * Encapsulates scene and render state.
  *
@@ -112,66 +116,52 @@ public class Scene implements JsonSerializable, Refreshable {
    * The current Scene Description Format (SDF) version.
    */
   public static final int SDF_VERSION = 9;
-
-  protected static final double fSubSurface = 0.3;
-
   /**
    * Minimum canvas width.
    */
   public static final int MIN_CANVAS_WIDTH = 20;
-
   /**
    * Minimum canvas height.
    */
   public static final int MIN_CANVAS_HEIGHT = 20;
-
   /**
    * Minimum exposure.
    */
   public static final double MIN_EXPOSURE = 0.001;
-
   /**
    * Maximum exposure.
    */
   public static final double MAX_EXPOSURE = 1000.0;
-
   /**
    * Default gamma for the gamma correction post process.
    */
   public static final float DEFAULT_GAMMA = 2.2f;
-
   /**
    * One over gamma.
    */
   public static final float DEFAULT_GAMMA_INV = 1 / DEFAULT_GAMMA;
-
   public static final boolean DEFAULT_EMITTERS_ENABLED = false;
-
   /**
    * Default emitter intensity.
    */
   public static final double DEFAULT_EMITTER_INTENSITY = 13;
-
   /**
    * Minimum emitter intensity.
    */
   public static final double MIN_EMITTER_INTENSITY = 0.01;
-
   /**
    * Maximum emitter intensity.
    */
   public static final double MAX_EMITTER_INTENSITY = 1000;
-
   /**
    * Default exposure.
    */
   public static final double DEFAULT_EXPOSURE = 1.0;
-
   /**
    * Default fog density.
    */
   public static final double DEFAULT_FOG_DENSITY = 0.0;
-
+  protected static final double fSubSurface = 0.3;
   protected final Sky sky = new Sky(this);
   protected final Camera camera = new Camera(this);
   protected final Sun sun = new Sun(this);
@@ -181,19 +171,20 @@ public class Scene implements JsonSerializable, Refreshable {
   protected final Vector3 fogColor =
       new Vector3(PersistentSettings.getFogColorRed(), PersistentSettings.getFogColorGreen(),
           PersistentSettings.getFogColorBlue());
+  // Chunk loading buffers.
+  private final byte[] blocks = new byte[Chunk.X_MAX * Chunk.Y_MAX * Chunk.Z_MAX];
+  private final byte[] biomes = new byte[Chunk.X_MAX * Chunk.Z_MAX];
+  private final byte[] data = new byte[(Chunk.X_MAX * Chunk.Y_MAX * Chunk.Z_MAX) / 2];
   public int sdfVersion = -1;
   public String name = "default";
-
   /**
    * Canvas width.
    */
   public int width;
-
   /**
    * Canvas height.
    */
   public int height;
-
   public Postprocess postprocess = Postprocess.DEFAULT;
   public OutputMode outputMode = OutputMode.DEFAULT;
   public long renderTime;
@@ -201,6 +192,22 @@ public class Scene implements JsonSerializable, Refreshable {
    * Current SPP for the scene.
    */
   public int spp = 0;
+  /**
+   * Material properties for this scene.
+   */
+  public Map<String, JsonValue> materials = new HashMap<>();
+  /**
+   * Lower Y clip plane.
+   */
+  public int yClipMin = PersistentSettings.getYClipMin();
+  /**
+   * Upper Y clip plane.
+   */
+  public int yClipMax = PersistentSettings.getYClipMax();
+  /**
+   * Preview frame interlacing counter.
+   */
+  public int previewCount;
   protected double exposure = DEFAULT_EXPOSURE;
   /**
    * Target SPP for the scene.
@@ -230,17 +237,14 @@ public class Scene implements JsonSerializable, Refreshable {
    * Enables fast fog algorithm
    */
   protected boolean fastFog = true;
-
   /**
    * Fog thickness.
    */
   protected double fogDensity = DEFAULT_FOG_DENSITY;
-
   /**
    * Controls how much the fog color is blended over the sky/skymap.
    */
   protected double skyFogDensity = 1;
-
   protected boolean biomeColors = true;
   protected boolean transparentSky = false;
   protected boolean renderActors = true;
@@ -250,75 +254,14 @@ public class Scene implements JsonSerializable, Refreshable {
    * Indicates if the render should be forced to reset.
    */
   protected ResetReason resetReason = ResetReason.NONE;
-
-  /**
-   * World reference.
-   */
-  private World loadedWorld;
-
   /**
    * Octree origin.
    */
   protected Vector3i origin = new Vector3i();
-
-  /**
-   * Octree
-   */
-  private Octree worldOctree;
-
-  /**
-   * Entities in the scene.
-   */
-  private Collection<Entity> entities = new LinkedList<>();
-
-  /**
-   * Poseable entities in the scene.
-   */
-  private Collection<Entity> actors = new LinkedList<>();
-
-  /**
-   * Poseable entities in the scene.
-   */
-  private Map<PlayerEntity, JsonObject> profiles = new HashMap<>();
-
-  /**
-   * Material properties for this scene.
-   */
-  public Map<String, JsonValue> materials = new HashMap<>();
-
-  /**
-   * Lower Y clip plane.
-   */
-  public int yClipMin = PersistentSettings.getYClipMin();
-
-  /**
-   * Upper Y clip plane.
-   */
-  public int yClipMax = PersistentSettings.getYClipMax();
-
-  private BVH bvh = new BVH(Collections.emptyList());
-  private BVH actorBvh = new BVH(Collections.emptyList());
-
-  // Chunk loading buffers.
-  private final byte[] blocks = new byte[Chunk.X_MAX * Chunk.Y_MAX * Chunk.Z_MAX];
-  private final byte[] biomes = new byte[Chunk.X_MAX * Chunk.Z_MAX];
-  private final byte[] data = new byte[(Chunk.X_MAX * Chunk.Y_MAX * Chunk.Z_MAX) / 2];
-
-  /**
-   * Preview frame interlacing counter.
-   */
-  public int previewCount;
-
-  private WorldTexture grassTexture = new WorldTexture();
-  private WorldTexture foliageTexture = new WorldTexture();
-
   /**
    * This is the 8-bit channel frame buffer.
    */
   protected BitmapImage frontBuffer;
-
-  private BitmapImage backBuffer;
-
   protected int[] sampleCounts;
   /**
    * HDR sample buffer for the render output.
@@ -332,6 +275,32 @@ public class Scene implements JsonSerializable, Refreshable {
    */
   protected double[] samples;
   protected double[] squaredSamples;
+  /**
+   * World reference.
+   */
+  private World loadedWorld;
+  /**
+   * Octree
+   */
+  private Octree worldOctree;
+  /**
+   * Entities in the scene.
+   */
+  private Collection<Entity> entities = new LinkedList<>();
+  /**
+   * Poseable entities in the scene.
+   */
+  private Collection<Entity> actors = new LinkedList<>();
+  /**
+   * Poseable entities in the scene.
+   */
+  private Map<PlayerEntity, JsonObject> profiles = new HashMap<>();
+  private BVH bvh = new BVH(Collections.emptyList());
+  private BVH actorBvh = new BVH(Collections.emptyList());
+  private WorldTexture grassTexture = new WorldTexture();
+  private WorldTexture foliageTexture = new WorldTexture();
+  private BitmapImage backBuffer;
+  public final Queue<Integer> bestOffsets = new PriorityQueue<>(new PointComparator(this));
 
   private byte[] alphaChannel;
 
@@ -354,6 +323,14 @@ public class Scene implements JsonSerializable, Refreshable {
     sppTarget = PersistentSettings.getSppTargetDefault();
 
     worldOctree = new Octree(1);
+  }
+
+  /**
+   * Creates a copy of another scene.
+   */
+  public Scene(Scene other) {
+    copyState(other);
+    copyTransients(other);
   }
 
   /**
@@ -387,16 +364,13 @@ public class Scene implements JsonSerializable, Refreshable {
     frontBuffer = new BitmapImage(width, height);
     backBuffer = new BitmapImage(width, height);
     alphaChannel = new byte[width * height];
+    sampleCounts = new int[width * height * 3];
     samples = new double[width * height * 3];
     squaredSamples = new double[width * height * 3];
-  }
-
-  /**
-   * Creates a copy of another scene.
-   */
-  public Scene(Scene other) {
-    copyState(other);
-    copyTransients(other);
+    bestOffsets.clear();
+    bestOffsets.addAll(IntStream.range(0, height).flatMap(
+        y -> IntStream.range(0, width).map(x -> (y * width + x) * 3)
+    ).boxed().collect(Collectors.toList()));
   }
 
   /**
@@ -462,8 +436,13 @@ public class Scene implements JsonSerializable, Refreshable {
       backBuffer = other.backBuffer;
       frontBuffer = other.frontBuffer;
       alphaChannel = other.alphaChannel;
+      sampleCounts = other.sampleCounts;
       samples = other.samples;
-      squaredSamples = other.samples;
+      squaredSamples = other.squaredSamples;
+      bestOffsets.clear();
+      bestOffsets.addAll(IntStream.range(0, height).flatMap(
+          y -> IntStream.range(0, width).map(x -> (y * width + x) * 3)
+      ).boxed().collect(Collectors.toList()));
     }
   }
 
@@ -554,6 +533,13 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
+   * @return Current exposure value
+   */
+  public double getExposure() {
+    return exposure;
+  }
+
+  /**
    * Set the exposure value
    */
   public synchronized void setExposure(double value) {
@@ -562,13 +548,6 @@ public class Scene implements JsonSerializable, Refreshable {
       // don't interrupt the render if we are currently rendering
       refresh();
     }
-  }
-
-  /**
-   * @return Current exposure value
-   */
-  public double getExposure() {
-    return exposure;
   }
 
   /**
@@ -589,16 +568,6 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
-   * Set emitters enable flag.
-   */
-  public synchronized void setEmittersEnabled(boolean value) {
-    if (value != emittersEnabled) {
-      emittersEnabled = value;
-      refresh();
-    }
-  }
-
-  /**
    * Set sunlight enable flag.
    */
   public synchronized void setDirectLight(boolean value) {
@@ -613,6 +582,16 @@ public class Scene implements JsonSerializable, Refreshable {
    */
   public boolean getEmittersEnabled() {
     return emittersEnabled;
+  }
+
+  /**
+   * Set emitters enable flag.
+   */
+  public synchronized void setEmittersEnabled(boolean value) {
+    if (value != emittersEnabled) {
+      emittersEnabled = value;
+      refresh();
+    }
   }
 
   /**
@@ -1332,6 +1311,13 @@ public class Scene implements JsonSerializable, Refreshable {
   }
 
   /**
+   * @return Recursive ray depth limit
+   */
+  public int getRayDepth() {
+    return rayDepth;
+  }
+
+  /**
    * Set the recursive ray depth limit
    */
   public synchronized void setRayDepth(int value) {
@@ -1340,13 +1326,6 @@ public class Scene implements JsonSerializable, Refreshable {
       rayDepth = value;
       PersistentSettings.setRayDepth(rayDepth);
     }
-  }
-
-  /**
-   * @return Recursive ray depth limit
-   */
-  public int getRayDepth() {
-    return rayDepth;
   }
 
   /**
@@ -1961,9 +1940,10 @@ public class Scene implements JsonSerializable, Refreshable {
    * @param result the resulting color values are written to this array
    */
   public void postProcessPixel(int x, int y, double[] result) {
-    double r = samples[(y * width + x) * 3 + 0];
-    double g = samples[(y * width + x) * 3 + 1];
-    double b = samples[(y * width + x) * 3 + 2];
+    int rI = (y * width + x) * 3, gI = rI + 1, bI = rI + 2;
+    double r = samples[rI] / sampleCounts[rI];
+    double g = samples[gI] / sampleCounts[gI];
+    double b = samples[bI] / sampleCounts[bI];
 
     r *= exposure;
     g *= exposure;
@@ -2753,6 +2733,10 @@ public class Scene implements JsonSerializable, Refreshable {
     return mode;
   }
 
+  public double getFogDensity() {
+    return fogDensity;
+  }
+
   public void setFogDensity(double newValue) {
     if (newValue != fogDensity) {
       this.fogDensity = newValue;
@@ -2760,8 +2744,8 @@ public class Scene implements JsonSerializable, Refreshable {
     }
   }
 
-  public double getFogDensity() {
-    return fogDensity;
+  public double getSkyFogDensity() {
+    return skyFogDensity;
   }
 
   public void setSkyFogDensity(double newValue) {
@@ -2769,10 +2753,6 @@ public class Scene implements JsonSerializable, Refreshable {
       this.skyFogDensity = newValue;
       refresh();
     }
-  }
-
-  public double getSkyFogDensity() {
-    return skyFogDensity;
   }
 
   public void setFastFog(boolean value) {
