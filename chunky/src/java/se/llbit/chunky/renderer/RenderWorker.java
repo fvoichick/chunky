@@ -21,6 +21,7 @@ import se.llbit.chunky.renderer.scene.RayTracer;
 import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.log.Log;
 import se.llbit.math.QuickMath;
+import org.apache.commons.math3.util.FastMath;
 import se.llbit.math.Ray;
 import se.llbit.math.Vector4;
 
@@ -200,19 +201,25 @@ public class RenderWorker extends Thread {
         // compute 'noise' variance-based metrics:
         // Note: this metric only makles sense for n >= 2 samples (otherwise, it is 0 and/or NaN)
         if (scene.sampleCounts[offset/3] >= 2) {
-          // TODO: clamp noise/averages the same way that Chunky clamps them for display?
-          double r_noise = (r_avg_sq - r_avg*r_avg)/(n_samples);
-          double g_noise = (g_avg_sq - g_avg*g_avg)/(n_samples);
-          double b_noise = (b_avg_sq - b_avg*b_avg)/(n_samples);
-          // base computation off the maximum observed noise in the pixel:
-          double max_noise = Math.max(Math.max(r_noise, g_noise), b_noise);
+          // compute d (for each of r, g, b) s.t. 95% confidence interval for the data is 2d wide
+          double r_d = 3*FastMath.sqrt((r_avg_sq - r_avg*r_avg)/(n_samples));
+          double g_d = 3*FastMath.sqrt((g_avg_sq - g_avg*g_avg)/(n_samples));
+          double b_d = 3*FastMath.sqrt((b_avg_sq - b_avg*b_avg)/(n_samples));
 
-          // compute d s.t. 95% confidence interval for the data is 2d wide
-          // TODO: could also cap/round n_samples for purposes of getting the T-distribution value (if it stops making a huge difference after a while)
-          // double d_sum = getTval(n_samples-1)*(Math.sqrt(max_noise));
+          double r_l = QuickMath.max(r_avg-r_d, 0);
+          double r_u = QuickMath.min(r_avg+r_d, 1);
+
+          double g_l = QuickMath.max(g_avg-g_d, 0);
+          double g_u = QuickMath.min(g_avg+g_d, 1);
+
+          double b_l = QuickMath.max(b_avg-b_d, 0);
+          double b_u = QuickMath.min(b_avg+b_d, 1);
+
+          // base computation off the maximum observed noise in the pixel:
+          double max_int = Math.max(Math.max(r_u-r_l, g_u-g_l), b_u-b_l);
 
           // put same pixel back into queue with new noise and sample count value:
-          tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, max_noise, n_samples));
+          tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, max_int, n_samples));
         }
         else {
           tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, 0, n_samples));
