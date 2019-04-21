@@ -1958,7 +1958,7 @@ public class Scene implements JsonSerializable, Refreshable {
     b *= exposure;
 
     /*/
-    double r = Math.log(sampleCounts[(y * width + x)])/100.0;
+    double r = Math.log(sampleCounts[(y * width + x)]-49)/20.0;
     double g = r;
     double b = r;
     //*/
