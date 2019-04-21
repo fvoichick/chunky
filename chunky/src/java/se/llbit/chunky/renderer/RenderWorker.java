@@ -138,8 +138,8 @@ public class RenderWorker extends Thread {
             sb += ray.color.z;
           }
 
-          final int saveX = 6, saveY = 157;
-          final double ox = 0.5, oy = 0.5;
+          final int saveX = 3, saveY = 300;
+//          final double ox = 0.5, oy = 0.5;
           if (x == saveX && y == saveY) {
 //            int rgb = ThreadLocalRandom.current().nextInt(3);
             int rgb = 0; // red
@@ -153,9 +153,9 @@ public class RenderWorker extends Thread {
               Path file = Files.createTempFile(prefix, ".txt");
               try (Writer writer = Files.newBufferedWriter(file);
                   Formatter formatter = new Formatter(writer)) {
-                for (int i = 0; i < 1_000_000; i++) {
-//                  double oy = random.nextDouble();
-//                  double ox = random.nextDouble();
+                for (int i = 0; i < 10_000_000; i++) {
+                  double oy = random.nextDouble();
+                  double ox = random.nextDouble();
 
                   cam.calcViewRay(ray, random, (-halfWidth + (x + ox) * invHeight),
                       (-.5 + (y + oy) * invHeight));
