@@ -135,7 +135,7 @@ public class RenderWorker extends Thread {
     if (scene.getMode() != RenderMode.PREVIEW) {
 
       // for debugging purposes - map of pixel coord to how many times it was processed this run
-      // Map<String, Integer> pixels = new HashMap<>();
+      Map<String, Integer> pixels = new HashMap<>();
 
       int tile_width = tile.x1 - tile.x0;
       int tile_height = tile.y1 - tile.y0;
@@ -151,7 +151,7 @@ public class RenderWorker extends Thread {
         int x = (int) pixel.x;
         int y = (int) pixel.y;
 
-        /*
+        //*
         String pkey = x+" "+y;
         pixels.putIfAbsent(pkey, 0);
         pixels.put(pkey, pixels.get(pkey) + 1);
@@ -246,8 +246,11 @@ public class RenderWorker extends Thread {
         if (scene.shouldFinalizeBuffer()) {
           scene.finalizePixel(x, y);
         }
+        if(p == 0) {
+          System.out.println(x+" "+y+" "+n_samples);
+        }
       }
-      // System.out.println(pixels.size()); // TODO: output to a file.
+      System.out.println(pixels.size()); // TODO: output to a file.
     } else {
       // Preview rendering.
       Ray target = new Ray(ray);
