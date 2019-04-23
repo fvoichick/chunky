@@ -134,6 +134,14 @@ public class RenderWorker extends Thread {
     }
   }
 
+  private double getMax(double candidates[]) {
+    double max = 0;
+    for(int i=0;i<candidates.length;++i)
+      if(candidates[i] > max)
+        max = candidates[i];
+    return max;
+  }
+
   /**
    * Perform the rendering work for a single tile.
    *
@@ -226,6 +234,7 @@ public class RenderWorker extends Thread {
 
           //"large" samples
           final double large_threshold = 1.5;
+
           if(sr >= large_threshold) {
             scene.largeAvg[offset + 0] = (scene.largeAvg[offset + 0]*scene.largeCounts[offset + 0] + sr)/(scene.largeCounts[offset + 0]+1);
             scene.largeCounts[offset + 0] += 1;
@@ -239,8 +248,9 @@ public class RenderWorker extends Thread {
           int large_r = scene.largeCounts[offset + 0];
           int large_g = scene.largeCounts[offset + 1];
           int large_b = scene.largeCounts[offset + 2];
+          //double small_r_avg = (r_avg*n_samlpes - scene.largeAvg[offset + 0]*large_r)/(n_samlpes-scene.largeCounts[offset + 0])
 
-          double max_interval = 0;
+          double max_interval = 1-FastMath.pow(0.05, sinv); // default max reasonable assumption, based on number of samples
 
 
           // compute confidence metrics:
@@ -278,7 +288,7 @@ public class RenderWorker extends Thread {
 
 
             // base computation off the maximum observed noise in the pixel:
-            max_interval = Math.max(Math.max(r_u-r_l, g_u-g_l), b_u-b_l);
+            max_interval = getMax(new double[]{r_u-r_l, g_u-g_l, b_u-b_l, max_interval});
             scene.intervals[offset/3] = max_interval;
 
             double b_p_r = 0;
@@ -287,7 +297,7 @@ public class RenderWorker extends Thread {
             double hit_u = 0;
             double hit_l = 0;
             double p_hit = ((double)large_r)/n_samples;  // probability of "hitting" emitter/generating large number
-            if(large_r > 2 && x == saveX && y == saveY) {
+            if(large_r > 0 && x == saveX && y == saveY) {
               // compute binomial option:
               // for each channel, if we assume the data came from a "convenient" binomial distribution, what's the actual likelihood of seeing this data?
               BinomialDistribution bin_r = new BinomialDistribution(n_samples, ((double)large_r)/n_samples);
@@ -299,8 +309,8 @@ public class RenderWorker extends Thread {
               hit_u = bd.inverseCumulativeProbability(0.975);
               hit_l = bd.inverseCumulativeProbability(0.025);
               // TODO: also factor in small average?..
-              b_r_u = hit_u;
-              b_r_l = hit_l;
+              b_r_u = hit_u * scene.largeAvg[offset + 0];
+              b_r_l = hit_l * scene.largeAvg[offset + 0];
 
             }
 
@@ -329,7 +339,7 @@ public class RenderWorker extends Thread {
             scene.finalizePixel(x, y);
           }
           if(p == 0) {
-            System.out.println(x+" "+y+" "+n_samples);
+            //System.out.println(x+" "+y+" "+n_samples);
           }
         }
         formatter.close();

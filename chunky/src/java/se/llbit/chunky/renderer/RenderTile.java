@@ -39,11 +39,11 @@ public class RenderTile {
         // there is not enough data for the variance metric to give sensible results.
         // prioritize the one with fewest samples instead.
         // TODO: make N some kind of global constant and skip calculating z when n_samlples < N
-        if ( p1.w < 15 || p2.w < 15) {
-          return (int) Math.ceil(p1.w - p2.w);
+        if ( p1.w < 2 || p2.w < 2) {
+          return (int) Math.ceil(p1.w - p2.w); // ceil so that less-than-one difference still matters.
         }
         // Otherwise, priorotize the one with smaller z (= sample count)
-        return (int) Math.ceil(p2.z - p1.z); // ceil so that less-than-one difference still matters.
+        return (int) Math.ceil(p2.z - p1.z);
       }
 	};
 
