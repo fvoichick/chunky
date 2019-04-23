@@ -313,6 +313,7 @@ public class Scene implements JsonSerializable, Refreshable {
    */
   protected double[] samples;
   public double[] squaredSamples;
+  public double[] intervals; // credible intervals used for pixel choice
 
   public int[] sampleCounts; // number of times each pixel was sampled
 
@@ -373,6 +374,7 @@ public class Scene implements JsonSerializable, Refreshable {
     alphaChannel = new byte[width * height];
     samples = new double[width * height * 3];
     squaredSamples = new double[width * height * 3];
+    intervals = new double[width * height];
     sampleCounts = new int[width * height];
   }
 
@@ -449,6 +451,7 @@ public class Scene implements JsonSerializable, Refreshable {
       alphaChannel = other.alphaChannel;
       samples = other.samples;
       squaredSamples = other.squaredSamples;
+      intervals = other.intervals;
       sampleCounts = other.sampleCounts;
     }
   }
@@ -1929,14 +1932,33 @@ public class Scene implements JsonSerializable, Refreshable {
     }
   }
 
+  public double[] coordToPixel(int x, int y){
+    //*
+    double r = samples[(y * width + x) * 3 + 0];
+    double g = samples[(y * width + x) * 3 + 1];
+    double b = samples[(y * width + x) * 3 + 2];
+    /*/
+    //double r = Math.log(sampleCounts[(y * width + x)]-49)/20.0;
+    double r=intervals[(y * width + x)];
+    double g = r;
+    double b = r;
+    //*/
+    double[] pixel = {r,g,b};
+    return pixel;
+  }
+
   /**
    * Finalize a pixel. Calculates the resulting RGB color values for
    * the pixel and sets these in the bitmap image.
    */
   public void finalizePixel(int x, int y) {
     finalized = true;
+    //*
     double[] result = new double[3];
-    postProcessPixel(x, y, result);
+    postProcessPixel(coordToPixel(x, y), result);
+    /*/
+    double[] result = coordToPixel(x, y);
+    //*/
     backBuffer.data[y * width + x] = ColorUtil
         .getRGB(QuickMath.min(1, result[0]), QuickMath.min(1, result[1]),
             QuickMath.min(1, result[2]));
@@ -1947,21 +1969,14 @@ public class Scene implements JsonSerializable, Refreshable {
    *
    * @param result the resulting color values are written to this array
    */
-  public void postProcessPixel(int x, int y, double[] result) {
-    //*
-    double r = samples[(y * width + x) * 3 + 0];
-    double g = samples[(y * width + x) * 3 + 1];
-    double b = samples[(y * width + x) * 3 + 2];
+  public void postProcessPixel(double[] input, double[] result) {
+    double r = input[0];
+    double g = input[1];
+    double b = input[2];
 
     r *= exposure;
     g *= exposure;
     b *= exposure;
-
-    /*/
-    double r = Math.log(sampleCounts[(y * width + x)]-49)/20.0;
-    double g = r;
-    double b = r;
-    //*/
 
     if (mode != RenderMode.PREVIEW) {
       switch (postprocess) {

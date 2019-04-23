@@ -216,7 +216,7 @@ public class TiffFileWriter implements AutoCloseable {
       task.update(height, y);
       for (int x = 0; x < width; ++x) {
         double[] pixel = new double[3];
-        scene.postProcessPixel(x, y, pixel);
+        scene.postProcessPixel(scene.coordToPixel(x, y), pixel);
         out.writeFloat((float) pixel[0]);
         out.writeFloat((float) pixel[1]);
         out.writeFloat((float) pixel[2]);
