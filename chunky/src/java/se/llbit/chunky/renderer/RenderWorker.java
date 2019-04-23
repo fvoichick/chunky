@@ -39,6 +39,8 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.math3.distribution.TDistribution;
+import org.apache.commons.math3.distribution.BetaDistribution;
+import org.apache.commons.math3.distribution.BinomialDistribution;
 
 
 
@@ -167,101 +169,140 @@ public class RenderWorker extends Thread {
                      StandardOpenOption.APPEND);
           Formatter formatter = new Formatter(writer)) {
 
-      for (int p = 0; p < budget; ++p){
+        for (int p = 0; p < budget; ++p){
 
-        Vector4 pixel = tile.pixelQueue.poll(); // pop top pixel off the queue
-        //int x = tile.x0 + p % tile_width;
-        //int y = tile.y0 + p / tile_width;
-        int x = (int) pixel.x;
-        int y = (int) pixel.y;
+          Vector4 pixel = tile.pixelQueue.poll(); // pop top pixel off the queue
+          //int x = tile.x0 + p % tile_width;
+          //int y = tile.y0 + p / tile_width;
+          int x = (int) pixel.x;
+          int y = (int) pixel.y;
 
-        //*
-        String pkey = x+" "+y;
-        pixels.putIfAbsent(pkey, 0);
-        pixels.put(pkey, pixels.get(pkey) + 1);
-        //*/
+          //*
+          String pkey = x+" "+y;
+          pixels.putIfAbsent(pkey, 0);
+          pixels.put(pkey, pixels.get(pkey) + 1);
+          //*/
 
-        int offset = y * width * 3 + x * 3;
+          int offset = y * width * 3 + x * 3;
 
-        double sr = 0;
-        double sg = 0;
-        double sb = 0;
-        double sr2 = 0, sg2 = 0, sb2 = 0;
+          double sr = 0;
+          double sg = 0;
+          double sb = 0;
+          double sr2 = 0, sg2 = 0, sb2 = 0;
 
-        double oy = random.nextDouble();
-        double ox = random.nextDouble();
+          double oy = random.nextDouble();
+          double ox = random.nextDouble();
 
-        cam.calcViewRay(ray, random, (-halfWidth + (x + ox) * invHeight),
-            (-.5 + (y + oy) * invHeight));
+          cam.calcViewRay(ray, random, (-halfWidth + (x + ox) * invHeight),
+          (-.5 + (y + oy) * invHeight));
 
-        scene.rayTrace(rayTracer, state);
+          scene.rayTrace(rayTracer, state);
 
-        sr += ray.color.x;
-        sg += ray.color.y;
-        sb += ray.color.z;
-        sr2 += ray.color.x * ray.color.x;
-        sg2 += ray.color.y * ray.color.y;
-        sb2 += ray.color.z * ray.color.z;
+          sr += ray.color.x;
+          sg += ray.color.y;
+          sb += ray.color.z;
+          sr2 += ray.color.x * ray.color.x;
+          sg2 += ray.color.y * ray.color.y;
+          sb2 += ray.color.z * ray.color.z;
 
-        int n_samples = scene.sampleCounts[offset/3] + 1;
-        scene.sampleCounts[offset/3] = n_samples;
+          int n_samples = scene.sampleCounts[offset/3] + 1;
+          scene.sampleCounts[offset/3] = n_samples;
 
-        double sinv = 1.0 / n_samples;
+          double sinv = 1.0 / n_samples;
 
-        double r_avg = (samples[offset + 0] * (n_samples-1) + sr) * sinv;
-        double g_avg = (samples[offset + 1] * (n_samples-1) + sg) * sinv;
-        double b_avg = (samples[offset + 2] * (n_samples-1) + sb) * sinv;
-        samples[offset + 0] = r_avg;
-        samples[offset + 1] = g_avg;
-        samples[offset + 2] = b_avg;
+          double r_avg = (samples[offset + 0] * (n_samples-1) + sr) * sinv;
+          double g_avg = (samples[offset + 1] * (n_samples-1) + sg) * sinv;
+          double b_avg = (samples[offset + 2] * (n_samples-1) + sb) * sinv;
+          samples[offset + 0] = r_avg;
+          samples[offset + 1] = g_avg;
+          samples[offset + 2] = b_avg;
 
-        double r_avg_sq = (scene.squaredSamples[offset] * (n_samples-1) + sr2) * sinv;
-        double g_avg_sq = (scene.squaredSamples[offset + 1] * (n_samples-1) + sg2) * sinv;
-        double b_avg_sq = (scene.squaredSamples[offset + 2] * (n_samples-1) + sb2) * sinv;
-        scene.squaredSamples[offset] = r_avg_sq;
-        scene.squaredSamples[offset + 1] = g_avg_sq;
-        scene.squaredSamples[offset + 2] = b_avg_sq;
+          double r_avg_sq = (scene.squaredSamples[offset] * (n_samples-1) + sr2) * sinv;
+          double g_avg_sq = (scene.squaredSamples[offset + 1] * (n_samples-1) + sg2) * sinv;
+          double b_avg_sq = (scene.squaredSamples[offset + 2] * (n_samples-1) + sb2) * sinv;
+          scene.squaredSamples[offset] = r_avg_sq;
+          scene.squaredSamples[offset + 1] = g_avg_sq;
+          scene.squaredSamples[offset + 2] = b_avg_sq;
 
-        double max_interval = 0;
+          //"large" samples
+          final double large_threshold = 1.5;
+          if(sr >= large_threshold) {
+            scene.largeAvg[offset + 0] = (scene.largeAvg[offset + 0]*scene.largeCounts[offset + 0] + sr)/(scene.largeCounts[offset + 0]+1);
+            scene.largeCounts[offset + 0] += 1;
+          }
+          if(sg >= large_threshold) {
+            scene.largeCounts[offset + 1] += 1;
+          }
+          if(sb >= large_threshold) {
+            scene.largeCounts[offset + 2] += 1;
+          }
+          int large_r = scene.largeCounts[offset + 0];
+          int large_g = scene.largeCounts[offset + 1];
+          int large_b = scene.largeCounts[offset + 2];
 
-
-        // compute confidence metrics:
-        // Note: this metric only makes sense for n >= 2 samples (otherwise, it is 0 and/or NaN)
-        if (scene.sampleCounts[offset/3] >= 2) {
-          // compute d (for each of r, g, b) s.t. 95% confidence interval for the data is 2d wide
-          double r_d = 2*FastMath.sqrt((r_avg_sq - r_avg*r_avg)/(n_samples));
-          double g_d = 2*FastMath.sqrt((g_avg_sq - g_avg*g_avg)/(n_samples));
-          double b_d = 2*FastMath.sqrt((b_avg_sq - b_avg*b_avg)/(n_samples));
-
-          double r_l = r_avg-r_d;
-          double r_u = r_avg+r_d;
-
-          double g_l = g_avg-g_d;
-          double g_u = g_avg+g_d;
-
-          double b_l = b_avg-b_d;
-          double b_u = b_avg+b_d;
-
-          double[] p_l = new double[3], p_u = new double[3];
-          double[] l = {r_l, g_l, b_l};
-          scene.postProcessPixel(l,p_l);
-
-          double[] u = {r_u, g_u, b_u};
-          scene.postProcessPixel(u,p_u);
-
-          r_l = QuickMath.max(p_l[0], 0);
-          r_u = QuickMath.min(p_u[0], 1);
-
-          g_l = QuickMath.max(p_l[1], 0);
-          g_u = QuickMath.min(p_u[1], 1);
-
-          b_l = QuickMath.max(p_l[2], 0);
-          b_u = QuickMath.min(p_u[2], 1);
+          double max_interval = 0;
 
 
-          // base computation off the maximum observed noise in the pixel:
-          max_interval = Math.max(Math.max(r_u-r_l, g_u-g_l), b_u-b_l);
-          scene.intervals[offset/3] = max_interval;
+          // compute confidence metrics:
+          // Note: this metric only makes sense for n >= 2 samples (otherwise, it is 0 and/or NaN)
+          if (scene.sampleCounts[offset/3] >= 2) {
+            // compute d (for each of r, g, b) s.t. 95% confidence interval for the data is 2d wide
+            double r_d = 2*FastMath.sqrt((r_avg_sq - r_avg*r_avg)/(n_samples));
+            double g_d = 2*FastMath.sqrt((g_avg_sq - g_avg*g_avg)/(n_samples));
+            double b_d = 2*FastMath.sqrt((b_avg_sq - b_avg*b_avg)/(n_samples));
+
+            double r_l = r_avg-r_d;
+            double r_u = r_avg+r_d;
+
+            double g_l = g_avg-g_d;
+            double g_u = g_avg+g_d;
+
+            double b_l = b_avg-b_d;
+            double b_u = b_avg+b_d;
+
+            double[] p_l = new double[3], p_u = new double[3];
+            double[] l = {r_l, g_l, b_l};
+            scene.postProcessPixel(l,p_l);
+
+            double[] u = {r_u, g_u, b_u};
+            scene.postProcessPixel(u,p_u);
+
+            r_l = QuickMath.max(p_l[0], 0);
+            r_u = QuickMath.min(p_u[0], 1);
+
+            g_l = QuickMath.max(p_l[1], 0);
+            g_u = QuickMath.min(p_u[1], 1);
+
+            b_l = QuickMath.max(p_l[2], 0);
+            b_u = QuickMath.min(p_u[2], 1);
+
+
+            // base computation off the maximum observed noise in the pixel:
+            max_interval = Math.max(Math.max(r_u-r_l, g_u-g_l), b_u-b_l);
+            scene.intervals[offset/3] = max_interval;
+
+            double b_p_r = 0;
+            double b_r_u = 0;
+            double b_r_l = 0;
+            double hit_u = 0;
+            double hit_l = 0;
+            double p_hit = ((double)large_r)/n_samples;  // probability of "hitting" emitter/generating large number
+            if(large_r > 2 && x == saveX && y == saveY) {
+              // compute binomial option:
+              // for each channel, if we assume the data came from a "convenient" binomial distribution, what's the actual likelihood of seeing this data?
+              BinomialDistribution bin_r = new BinomialDistribution(n_samples, ((double)large_r)/n_samples);
+              b_p_r = bin_r.probability(large_r);
+
+              // beta distribution credible interval (upper/lower limit belief about p(hit) )
+              BetaDistribution bd= new BetaDistribution(large_r, n_samples - large_r);
+              // Upper and lower bound on our belief of p(hit)
+              hit_u = bd.inverseCumulativeProbability(0.975);
+              hit_l = bd.inverseCumulativeProbability(0.025);
+              // TODO: also factor in small average?..
+              b_r_u = hit_u;
+              b_r_l = hit_l;
+
+            }
 
             // write pixel data to file:
 
@@ -269,7 +310,7 @@ public class RenderWorker extends Thread {
               int rgb = 0; // red
               switch (rgb) {
                 case 0:
-                  formatter.format("%.15f, %.15f, %.15f, %.15f%n", sr, r_avg, r_avg + r_d, r_avg - r_d);
+                  formatter.format("%.15f, %.15f, %.15f, %.15f, %.15f, %.15f, %.15f, %.15f%n", sr, r_avg, r_avg + r_d, r_avg - r_d, b_r_u, b_r_l, scene.largeAvg[offset + 0], p_hit);
                   break;
                 case 1:
                   formatter.format("%.15f, %.15f, %.15f, %.15f%n", sg, g_avg, g_avg + g_d, g_avg - g_d);
@@ -284,17 +325,17 @@ public class RenderWorker extends Thread {
           // put same pixel back into queue with new noise and sample count value:
           tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, max_interval, n_samples));
 
-        if (scene.shouldFinalizeBuffer()) {
-          scene.finalizePixel(x, y);
+          if (scene.shouldFinalizeBuffer()) {
+            scene.finalizePixel(x, y);
+          }
+          if(p == 0) {
+            System.out.println(x+" "+y+" "+n_samples);
+          }
         }
-        if(p == 0) {
-          System.out.println(x+" "+y+" "+n_samples);
-        }
+        formatter.close();
+      }catch (IOException e) {
+        e.printStackTrace();
       }
-      formatter.close();
-    }catch (IOException e) {
-      e.printStackTrace();
-    }
       System.out.println(pixels.size()); // TODO: output to a file.
     } else {
       // Preview rendering.
@@ -305,62 +346,62 @@ public class RenderWorker extends Thread {
       int tz = (int) QuickMath.floor(target.o.z + target.d.z * Ray.OFFSET);
 
       for (int x = tile.x0; x < tile.x1; ++x)
-        for (int y = tile.y0; y < tile.y1; ++y) {
+      for (int y = tile.y0; y < tile.y1; ++y) {
 
-          boolean firstFrame = scene.previewCount > 1;
-          if (firstFrame) {
-            if (((x + y) % 2) == 0) {
-              continue;
-            }
-          } else {
-            if (((x + y) % 2) != 0) {
-              scene.finalizePixel(x, y);
-              continue;
-            }
+        boolean firstFrame = scene.previewCount > 1;
+        if (firstFrame) {
+          if (((x + y) % 2) == 0) {
+            continue;
           }
-
-          // Draw the crosshairs.
-          if (x == width / 2 && (y >= height / 2 - 5 && y <= height / 2 + 5) || y == height / 2 && (
-              x >= width / 2 - 5 && x <= width / 2 + 5)) {
-            samples[(y * width + x) * 3 + 0] = 0xFF;
-            samples[(y * width + x) * 3 + 1] = 0xFF;
-            samples[(y * width + x) * 3 + 2] = 0xFF;
+        } else {
+          if (((x + y) % 2) != 0) {
             scene.finalizePixel(x, y);
             continue;
           }
+        }
 
-          cam.calcViewRay(ray, random, (-halfWidth + (double) x * invHeight),
+        // Draw the crosshairs.
+        if (x == width / 2 && (y >= height / 2 - 5 && y <= height / 2 + 5) || y == height / 2 && (
+              x >= width / 2 - 5 && x <= width / 2 + 5)) {
+          samples[(y * width + x) * 3 + 0] = 0xFF;
+          samples[(y * width + x) * 3 + 1] = 0xFF;
+          samples[(y * width + x) * 3 + 2] = 0xFF;
+          scene.finalizePixel(x, y);
+          continue;
+        }
+
+        cam.calcViewRay(ray, random, (-halfWidth + (double) x * invHeight),
               (-.5 + (double) y * invHeight));
 
-          scene.rayTrace(previewRayTracer, state);
+        scene.rayTrace(previewRayTracer, state);
 
-          // Target highlighting.
-          int rx = (int) QuickMath.floor(ray.o.x + ray.d.x * Ray.OFFSET);
-          int ry = (int) QuickMath.floor(ray.o.y + ray.d.y * Ray.OFFSET);
-          int rz = (int) QuickMath.floor(ray.o.z + ray.d.z * Ray.OFFSET);
-          if (hit && tx == rx && ty == ry && tz == rz) {
-            ray.color.x = 1 - ray.color.x;
-            ray.color.y = 1 - ray.color.y;
-            ray.color.z = 1 - ray.color.z;
-            ray.color.w = 1;
-          }
+        // Target highlighting.
+        int rx = (int) QuickMath.floor(ray.o.x + ray.d.x * Ray.OFFSET);
+        int ry = (int) QuickMath.floor(ray.o.y + ray.d.y * Ray.OFFSET);
+        int rz = (int) QuickMath.floor(ray.o.z + ray.d.z * Ray.OFFSET);
+        if (hit && tx == rx && ty == ry && tz == rz) {
+          ray.color.x = 1 - ray.color.x;
+          ray.color.y = 1 - ray.color.y;
+          ray.color.z = 1 - ray.color.z;
+          ray.color.w = 1;
+        }
 
-          samples[(y * width + x) * 3 + 0] = ray.color.x;
-          samples[(y * width + x) * 3 + 1] = ray.color.y;
-          samples[(y * width + x) * 3 + 2] = ray.color.z;
+        samples[(y * width + x) * 3 + 0] = ray.color.x;
+        samples[(y * width + x) * 3 + 1] = ray.color.y;
+        samples[(y * width + x) * 3 + 2] = ray.color.z;
 
-          scene.finalizePixel(x, y);
+        scene.finalizePixel(x, y);
 
-          if (firstFrame) {
-            if (y % 2 == 0 && x < (width - 1)) {
-              // Copy the current pixel to the next one.
-              scene.copyPixel(y * width + x, 1);
-            } else if (y % 2 != 0 && x > 0) {
-              // Copy the next pixel to this pixel.
-              scene.copyPixel(y * width + x, -1);
-            }
+        if (firstFrame) {
+          if (y % 2 == 0 && x < (width - 1)) {
+            // Copy the current pixel to the next one.
+            scene.copyPixel(y * width + x, 1);
+          } else if (y % 2 != 0 && x > 0) {
+            // Copy the next pixel to this pixel.
+            scene.copyPixel(y * width + x, -1);
           }
         }
+      }
     }
   }
 

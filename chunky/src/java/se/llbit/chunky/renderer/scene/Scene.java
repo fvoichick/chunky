@@ -316,6 +316,8 @@ public class Scene implements JsonSerializable, Refreshable {
   public double[] intervals; // credible intervals used for pixel choice
 
   public int[] sampleCounts; // number of times each pixel was sampled
+  public int[] largeCounts; // number of "large" samples (radiance over some threshold) (same shape as samples/squaredSamples above, one for each channel)
+  public double[] largeAvg; // average of "large" samples (separately from overall avg)
 
   private byte[] alphaChannel;
 
@@ -376,6 +378,8 @@ public class Scene implements JsonSerializable, Refreshable {
     squaredSamples = new double[width * height * 3];
     intervals = new double[width * height];
     sampleCounts = new int[width * height];
+    largeCounts = new int[width * height * 3];
+    largeAvg = new double[width * height * 3];
   }
 
   /**
@@ -453,6 +457,8 @@ public class Scene implements JsonSerializable, Refreshable {
       squaredSamples = other.squaredSamples;
       intervals = other.intervals;
       sampleCounts = other.sampleCounts;
+      largeCounts = other.largeCounts;
+      largeAvg = other.largeAvg;
     }
   }
 
