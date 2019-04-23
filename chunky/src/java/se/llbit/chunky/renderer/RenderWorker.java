@@ -179,47 +179,65 @@ public class RenderWorker extends Thread {
         sg2 += ray.color.y * ray.color.y;
         sb2 += ray.color.z * ray.color.z;
 
-        double sinv = 1.0 / (scene.spp + RenderConstants.SPP_PER_PASS);
+        int n_samples = scene.sampleCounts[offset/3] + 1;
+        scene.sampleCounts[offset/3] = n_samples;
 
-        double r_avg = (samples[offset + 0] * scene.spp + sr) * sinv;
-        double g_avg = (samples[offset + 1] * scene.spp + sg) * sinv;
-        double b_avg = (samples[offset + 2] * scene.spp + sb) * sinv;
+        double sinv = 1.0 / n_samples;
+
+        double r_avg = (samples[offset + 0] * (n_samples-1) + sr) * sinv;
+        double g_avg = (samples[offset + 1] * (n_samples-1) + sg) * sinv;
+        double b_avg = (samples[offset + 2] * (n_samples-1) + sb) * sinv;
         samples[offset + 0] = r_avg;
         samples[offset + 1] = g_avg;
         samples[offset + 2] = b_avg;
 
-        double r_avg_sq = (scene.squaredSamples[offset] * scene.spp + sr2) * sinv;
-        double g_avg_sq = (scene.squaredSamples[offset + 1] * scene.spp + sg2) * sinv;
-        double b_avg_sq = (scene.squaredSamples[offset + 2] * scene.spp + sb2) * sinv;
+        double r_avg_sq = (scene.squaredSamples[offset] * (n_samples-1) + sr2) * sinv;
+        double g_avg_sq = (scene.squaredSamples[offset + 1] * (n_samples-1) + sg2) * sinv;
+        double b_avg_sq = (scene.squaredSamples[offset + 2] * (n_samples-1) + sb2) * sinv;
         scene.squaredSamples[offset] = r_avg_sq;
         scene.squaredSamples[offset + 1] = g_avg_sq;
         scene.squaredSamples[offset + 2] = b_avg_sq;
 
-        int n_samples = scene.sampleCounts[offset/3] + 1;
-        scene.sampleCounts[offset/3] = n_samples;
-
-        // compute 'noise' variance-based metrics:
-        // Note: this metric only makles sense for n >= 2 samples (otherwise, it is 0 and/or NaN)
+        // compute confidence metrics:
+        // Note: this metric only makes sense for n >= 2 samples (otherwise, it is 0 and/or NaN)
         if (scene.sampleCounts[offset/3] >= 2) {
           // compute d (for each of r, g, b) s.t. 95% confidence interval for the data is 2d wide
-          double r_d = 3*FastMath.sqrt((r_avg_sq - r_avg*r_avg)/(n_samples));
-          double g_d = 3*FastMath.sqrt((g_avg_sq - g_avg*g_avg)/(n_samples));
-          double b_d = 3*FastMath.sqrt((b_avg_sq - b_avg*b_avg)/(n_samples));
+          double r_d = 2*FastMath.sqrt((r_avg_sq - r_avg*r_avg)/(n_samples));
+          double g_d = 2*FastMath.sqrt((g_avg_sq - g_avg*g_avg)/(n_samples));
+          double b_d = 2*FastMath.sqrt((b_avg_sq - b_avg*b_avg)/(n_samples));
 
-          double r_l = QuickMath.max(r_avg-r_d, 0);
-          double r_u = QuickMath.min(r_avg+r_d, 1);
+          double r_l = r_avg-r_d;
+          double r_u = r_avg+r_d;
 
-          double g_l = QuickMath.max(g_avg-g_d, 0);
-          double g_u = QuickMath.min(g_avg+g_d, 1);
+          double g_l = g_avg-g_d;
+          double g_u = g_avg+g_d;
 
-          double b_l = QuickMath.max(b_avg-b_d, 0);
-          double b_u = QuickMath.min(b_avg+b_d, 1);
+          double b_l = b_avg-b_d;
+          double b_u = b_avg+b_d;
+
+          double[] p_l = new double[3], p_u = new double[3];
+          double[] l = {r_l, g_l, b_l};
+          scene.postProcessPixel(l,p_l);
+
+          double[] u = {r_u, g_u, b_u};
+          scene.postProcessPixel(u,p_u);
+
+          r_l = QuickMath.max(p_l[0], 0);
+          r_u = QuickMath.min(p_u[0], 1);
+
+          g_l = QuickMath.max(p_l[1], 0);
+          g_u = QuickMath.min(p_u[1], 1);
+
+          b_l = QuickMath.max(p_l[2], 0);
+          b_u = QuickMath.min(p_u[2], 1);
+
 
           // base computation off the maximum observed noise in the pixel:
-          double max_int = Math.max(Math.max(r_u-r_l, g_u-g_l), b_u-b_l);
+          double max_interval = Math.max(Math.max(r_u-r_l, g_u-g_l), b_u-b_l);
+          scene.intervals[offset/3] = max_interval;
 
           // put same pixel back into queue with new noise and sample count value:
-          tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, max_int, n_samples));
+          tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, max_interval, n_samples));
         }
         else {
           tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, 0, n_samples));
