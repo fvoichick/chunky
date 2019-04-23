@@ -16,6 +16,15 @@
  */
 package se.llbit.chunky.renderer;
 
+import java.io.IOException;
+import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Formatter;
+import java.nio.file.StandardOpenOption;
+import java.nio.charset.StandardCharsets;
+
+
 import se.llbit.chunky.renderer.scene.Camera;
 import se.llbit.chunky.renderer.scene.RayTracer;
 import se.llbit.chunky.renderer.scene.Scene;
@@ -59,6 +68,9 @@ public class RenderWorker extends Thread {
     return d_sum;
   }
 
+  private final int saveX = 72, saveY = 233;
+  private Path pixel_file;
+
   protected final int id;
   protected final AbstractRenderManager manager;
 
@@ -84,6 +96,14 @@ public class RenderWorker extends Thread {
     state = new WorkerState();
     state.random = new Random(seed);
     state.ray = new Ray();
+
+
+    try{
+      pixel_file = Files.createTempFile("pixel_"+saveX+"_"+saveY+"_", ".csv");
+      System.out.println(pixel_file);
+    }catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 
   @Override public void run() {
@@ -143,6 +163,10 @@ public class RenderWorker extends Thread {
       // The budget (how many rays we can cast) for this pass
       int budget = tile_height * tile_width * RenderConstants.SPP_PER_PASS;
 
+      try (Writer writer = Files.newBufferedWriter(pixel_file, StandardCharsets.UTF_8,
+                     StandardOpenOption.APPEND);
+          Formatter formatter = new Formatter(writer)) {
+
       for (int p = 0; p < budget; ++p){
 
         Vector4 pixel = tile.pixelQueue.poll(); // pop top pixel off the queue
@@ -198,6 +222,9 @@ public class RenderWorker extends Thread {
         scene.squaredSamples[offset + 1] = g_avg_sq;
         scene.squaredSamples[offset + 2] = b_avg_sq;
 
+        double max_interval = 0;
+
+
         // compute confidence metrics:
         // Note: this metric only makes sense for n >= 2 samples (otherwise, it is 0 and/or NaN)
         if (scene.sampleCounts[offset/3] >= 2) {
@@ -233,15 +260,29 @@ public class RenderWorker extends Thread {
 
 
           // base computation off the maximum observed noise in the pixel:
-          double max_interval = Math.max(Math.max(r_u-r_l, g_u-g_l), b_u-b_l);
+          max_interval = Math.max(Math.max(r_u-r_l, g_u-g_l), b_u-b_l);
           scene.intervals[offset/3] = max_interval;
+
+            // write pixel data to file:
+
+            if (x == saveX && y == saveY) {
+              int rgb = 0; // red
+              switch (rgb) {
+                case 0:
+                  formatter.format("%.15f, %.15f, %.15f, %.15f%n", sr, r_avg, r_avg + r_d, r_avg - r_d);
+                  break;
+                case 1:
+                  formatter.format("%.15f, %.15f, %.15f, %.15f%n", sg, g_avg, g_avg + g_d, g_avg - g_d);
+                  break;
+                case 2:
+                  formatter.format("%.15f, %.15f, %.15f, %.15f%n", sb, b_avg, b_avg + b_d, b_avg - b_d);
+              }
+              formatter.flush();
+            }
+          }
 
           // put same pixel back into queue with new noise and sample count value:
           tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, max_interval, n_samples));
-        }
-        else {
-          tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, 0, n_samples));
-        }
 
         if (scene.shouldFinalizeBuffer()) {
           scene.finalizePixel(x, y);
@@ -250,6 +291,10 @@ public class RenderWorker extends Thread {
           System.out.println(x+" "+y+" "+n_samples);
         }
       }
+      formatter.close();
+    }catch (IOException e) {
+      e.printStackTrace();
+    }
       System.out.println(pixels.size()); // TODO: output to a file.
     } else {
       // Preview rendering.
