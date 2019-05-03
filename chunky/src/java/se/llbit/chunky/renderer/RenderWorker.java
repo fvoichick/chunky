@@ -162,7 +162,13 @@ public class RenderWorker extends Thread {
     double[] samples = scene.getSampleBuffer();
     final Camera cam = scene.camera();
 
-    final double chance_stick = 1;
+    boolean use_bug = false; // artificially reintroduce bug
+    boolean tone_upper_cutoff = false; // truncate radiance upper bound to 1 before comparison
+    boolean tone_lower_cutoff = true; // truncate radiance lower bound to 0 before comparison
+    boolean tone_pp = true;  // whether to do post processing on pixel bounds
+    boolean nd_threshold = true; // use 'smart' threshold for min. number of samples (as opposed to flat minimum) (NOTE: manually turn flat minimum on/off)
+    final double chance_stick = 0.999; // "smoothing": chance to stick with the chosen pixel (vs. perturbing to neighbor)
+
     final double chance_move_direction = 1-FastMath.sqrt(chance_stick);
 
 
@@ -265,6 +271,24 @@ public class RenderWorker extends Thread {
           scene.squaredSamples[offset + 1] = g_avg_sq;
           scene.squaredSamples[offset + 2] = b_avg_sq;
 
+          if(use_bug) {
+            sinv = 1.0 / (scene.spp + RenderConstants.SPP_PER_PASS);
+
+            r_avg = (samples[offset + 0] * scene.spp + sr) * sinv;
+            g_avg = (samples[offset + 1] * scene.spp + sg) * sinv;
+            b_avg = (samples[offset + 2] * scene.spp + sb) * sinv;
+            samples[offset + 0] = r_avg;
+            samples[offset + 1] = g_avg;
+            samples[offset + 2] = b_avg;
+
+            r_avg_sq = (scene.squaredSamples[offset] * scene.spp + sr2) * sinv;
+            g_avg_sq = (scene.squaredSamples[offset + 1] * scene.spp + sg2) * sinv;
+            b_avg_sq = (scene.squaredSamples[offset + 2] * scene.spp + sb2) * sinv;
+            scene.squaredSamples[offset] = r_avg_sq;
+            scene.squaredSamples[offset + 1] = g_avg_sq;
+            scene.squaredSamples[offset + 2] = b_avg_sq;
+          }
+
           //"large" samples
           final double large_threshold = 1.5;
 
@@ -283,16 +307,19 @@ public class RenderWorker extends Thread {
           int large_b = scene.largeCounts[offset + 2];
           //double small_r_avg = (r_avg*n_samlpes - scene.largeAvg[offset + 0]*large_r)/(n_samlpes-scene.largeCounts[offset + 0])
 
-          double max_interval = 1-FastMath.pow(0.05, sinv); // default max reasonable assumption, based on number of samples
+          double max_interval = 0;
+          if(nd_threshold) {
+            max_interval = 1-FastMath.pow(0.01, sinv); // default max reasonable assumption, based on number of samples
+          }
 
 
           // compute confidence metrics:
           // Note: this metric only makes sense for n >= 2 samples (otherwise, it is 0 and/or NaN)
           if (scene.sampleCounts[offset/3] >= 2) {
             // compute d (for each of r, g, b) s.t. 95% confidence interval for the data is 2d wide
-            double r_d = 2*FastMath.sqrt((r_avg_sq - r_avg*r_avg)/(n_samples));
-            double g_d = 2*FastMath.sqrt((g_avg_sq - g_avg*g_avg)/(n_samples));
-            double b_d = 2*FastMath.sqrt((b_avg_sq - b_avg*b_avg)/(n_samples));
+            double r_d = 3*FastMath.sqrt((r_avg_sq - r_avg*r_avg)/(n_samples));
+            double g_d = 3*FastMath.sqrt((g_avg_sq - g_avg*g_avg)/(n_samples));
+            double b_d = 3*FastMath.sqrt((b_avg_sq - b_avg*b_avg)/(n_samples));
 
             double r_l = r_avg-r_d;
             double r_u = r_avg+r_d;
@@ -303,21 +330,42 @@ public class RenderWorker extends Thread {
             double b_l = b_avg-b_d;
             double b_u = b_avg+b_d;
 
+            // post process:
+
             double[] p_l = new double[3], p_u = new double[3];
             double[] l = {r_l, g_l, b_l};
-            scene.postProcessPixel(l,p_l);
-
             double[] u = {r_u, g_u, b_u};
-            scene.postProcessPixel(u,p_u);
+            if(tone_pp) {
+              scene.postProcessPixel(l,p_l);
+              scene.postProcessPixel(u,p_u);
+            }
+            else {
+              p_l = l;
+              p_u = u;
+            }
 
-            r_l = QuickMath.max(p_l[0], 0);
-            r_u = QuickMath.min(p_u[0], 1);
+            // cutoff:
+            if(tone_upper_cutoff) {
+              r_u = QuickMath.min(p_u[0], 1);
+              g_u = QuickMath.min(p_u[1], 1);
+              b_u = QuickMath.min(p_u[2], 1);
+            }
+            else {
+              r_u = p_u[0];
+              g_u = p_u[1];
+              b_u = p_u[2];
+            }
 
-            g_l = QuickMath.max(p_l[1], 0);
-            g_u = QuickMath.min(p_u[1], 1);
-
-            b_l = QuickMath.max(p_l[2], 0);
-            b_u = QuickMath.min(p_u[2], 1);
+            if(tone_lower_cutoff) {
+              r_l = QuickMath.max(p_l[0], 0);
+              g_l = QuickMath.max(p_l[1], 0);
+              b_l = QuickMath.max(p_l[2], 0);
+            }
+            else {
+              r_l = p_l[0];
+              g_l = p_l[1];
+              b_l = p_l[2];
+            }
 
 
             // base computation off the maximum observed noise in the pixel:
