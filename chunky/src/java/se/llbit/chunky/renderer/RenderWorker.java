@@ -162,6 +162,10 @@ public class RenderWorker extends Thread {
     double[] samples = scene.getSampleBuffer();
     final Camera cam = scene.camera();
 
+    final double chance_stick = 1;
+    final double chance_move_direction = 1-FastMath.sqrt(chance_stick);
+
+
     if (scene.getMode() != RenderMode.PREVIEW) {
 
       // for debugging purposes - map of pixel coord to how many times it was processed this run
@@ -184,6 +188,35 @@ public class RenderWorker extends Thread {
           //int y = tile.y0 + p / tile_width;
           int x = (int) pixel.x;
           int y = (int) pixel.y;
+
+          // some chance of switching to neighbor pixel (revert back to this pixel if on border):
+          // (TODO: does this have the distribution I want?..)
+          double switch_indicator = random.nextDouble();
+          boolean switched = false;
+          if(switch_indicator<chance_move_direction/2) {
+            x = (int)QuickMath.max(x-1, tile.x0);
+            switched = true;
+          }
+          else if(switch_indicator<chance_move_direction) {
+            x = (int)QuickMath.min(x+1, tile.x1-1);
+            switched = true;
+          }
+
+          switch_indicator = random.nextDouble();
+          if(switch_indicator<chance_move_direction/2) {
+            y = (int)QuickMath.max(y-1, tile.y0);
+            switched = true;
+          }
+          else if(switch_indicator<chance_move_direction) {
+            y = (int)QuickMath.min(y+1, tile.y1-1);
+            switched = true;
+          }
+
+          // if we switched which pixel we're using, then put the old pixel back in the queue.
+          // TODO: this actually puts a second copy of the modified pixel in the queue, so probably smarter management of what we put in/take out is in order.
+          if(switched) {
+            tile.pixelQueue.add(pixel);
+          }
 
           //*
           String pkey = x+" "+y;
@@ -333,7 +366,7 @@ public class RenderWorker extends Thread {
           }
 
           // put same pixel back into queue with new noise and sample count value:
-          tile.pixelQueue.add(new Vector4(pixel.x, pixel.y, max_interval, n_samples));
+          tile.pixelQueue.add(new Vector4(x, y, max_interval, n_samples));
 
           if (scene.shouldFinalizeBuffer()) {
             scene.finalizePixel(x, y);

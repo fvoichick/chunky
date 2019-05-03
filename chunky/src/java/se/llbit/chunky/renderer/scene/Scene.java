@@ -1944,7 +1944,7 @@ public class Scene implements JsonSerializable, Refreshable {
     double g = samples[(y * width + x) * 3 + 1];
     double b = samples[(y * width + x) * 3 + 2];
     /*/
-    //double r = Math.log(sampleCounts[(y * width + x)]-49)/20.0;
+    //double r = Math.log(sampleCounts[(y * width + x)]-2)/20.0;
     double r=intervals[(y * width + x)];
     double g = r;
     double b = r;
